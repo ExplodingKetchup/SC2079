@@ -1,0 +1,8 @@
+STM32/*
+
+# core items
+!STM32/Core
+!STM32/STM32.ioc
+
+# Other cached files
+.metadata/*
