@@ -214,23 +214,25 @@ void accel_caliberate() {
 	accel_bias_x = -accel_bias_x / 16;
 	accel_bias_y = -accel_bias_y / 16;
 	accel_bias_z = -accel_bias_z / 16;
-	// Get the reserve bit at OFFS_L[0]
-	uint8_t lastBitX = read_one_byte(1, B1_XA_OFFS_L) & 0x01;
-	uint8_t lastBitY = read_one_byte(1, B1_YA_OFFS_L) & 0x01;
-	uint8_t lastBitZ = read_one_byte(1, B1_ZA_OFFS_L) & 0x01;
+	// Get the preloaded offset and add with our custom bias
+	int16_t accel_offset_x = (int16_t)(read_one_byte(1, B1_XA_OFFS_H) << 8 | read_one_byte(1, B1_XA_OFFS_L)) >> 1;
+	int16_t accel_offset_y = (int16_t)(read_one_byte(1, B1_YA_OFFS_H) << 8 | read_one_byte(1, B1_YA_OFFS_L)) >> 1;
+	int16_t accel_offset_z = (int16_t)(read_one_byte(1, B1_ZA_OFFS_H) << 8 | read_one_byte(1, B1_ZA_OFFS_L)) >> 1;
+
+	accel_bias_x += accel_offset_x;
+	accel_bias_y += accel_offset_y;
+	accel_bias_z += accel_offset_z;
+
 	// Separate accel_bias into 2 part: [14:7] and [6:0]
 	uint8_t accel_bias_x_h = (uint8_t)(accel_bias_x >> 7);
-	uint8_t accel_bias_x_l = (uint8_t)(accel_bias_x << 1) | lastBitX;
+	uint8_t accel_bias_x_l = (uint8_t)(accel_bias_x << 1);
 	uint8_t accel_bias_y_h = (uint8_t)(accel_bias_y >> 7);
-	uint8_t accel_bias_y_l = (uint8_t)(accel_bias_y << 1) | lastBitY;
+	uint8_t accel_bias_y_l = (uint8_t)(accel_bias_y << 1);
 	uint8_t accel_bias_z_h = (uint8_t)(accel_bias_z >> 7);
-	uint8_t accel_bias_z_l = (uint8_t)(accel_bias_z << 1) | lastBitZ;
+	uint8_t accel_bias_z_l = (uint8_t)(accel_bias_z << 1);
 	// Write to registers
-	//write_one_byte(1, B1_XA_OFFS_H, accel_bias_x_h);
-	//write_one_byte(1, B1_XA_OFFS_L, accel_bias_x_l);
-	uint8_t temp = read_one_byte(1, B1_XA_OFFS_H);
-	write_one_byte(1, B1_XA_OFFS_H, 0x00);
-	write_one_byte(1, B1_XA_OFFS_L, 0x96);
+	write_one_byte(1, B1_XA_OFFS_H, accel_bias_x_h);
+	write_one_byte(1, B1_XA_OFFS_L, accel_bias_x_l);
 	write_one_byte(1, B1_YA_OFFS_H, accel_bias_y_h);
 	write_one_byte(1, B1_YA_OFFS_L, accel_bias_y_l);
 	write_one_byte(1, B1_ZA_OFFS_H, accel_bias_z_h);

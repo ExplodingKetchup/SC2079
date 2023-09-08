@@ -1,0 +1,5 @@
+../Core/Src/servo.c:12:6:turnLeft	3
+../Core/Src/servo.c:27:6:turnRight	3
+../Core/Src/servo.c:42:6:turnStraight	3
+../Core/Src/servo.c:54:6:turn	3
+../Core/Src/servo.c:64:6:servoInit	1

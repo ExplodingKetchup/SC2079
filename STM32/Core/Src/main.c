@@ -25,6 +25,7 @@
 #include "oled.h"
 #include "motors.h"
 #include "imu.h"
+#include "servo.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,6 +46,9 @@
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 
+TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim8;
 
 /* Definitions for defaultTask */
@@ -58,8 +62,8 @@ const osThreadAttr_t defaultTask_attributes = {
 osThreadId_t MotorsDriveHandle;
 const osThreadAttr_t MotorsDrive_attributes = {
   .name = "MotorsDrive",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityRealtime1,
+  .stack_size = 2048 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
 };
 /* Definitions for IMU */
 osThreadId_t IMUHandle;
@@ -67,6 +71,20 @@ const osThreadAttr_t IMU_attributes = {
   .name = "IMU",
   .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityHigh,
+};
+/* Definitions for MotorEncoder */
+osThreadId_t MotorEncoderHandle;
+const osThreadAttr_t MotorEncoder_attributes = {
+  .name = "MotorEncoder",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
+};
+/* Definitions for Servo */
+osThreadId_t ServoHandle;
+const osThreadAttr_t Servo_attributes = {
+  .name = "Servo",
+  .stack_size = 256 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* USER CODE BEGIN PV */
 
@@ -77,9 +95,14 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM8_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_TIM2_Init(void);
+static void MX_TIM3_Init(void);
+static void MX_TIM1_Init(void);
 void StartDefaultTask(void *argument);
 void motorsMain(void *argument);
 void IMUMain(void *argument);
+void MotorEncoderMain(void *argument);
+void ServoMain(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -120,6 +143,9 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM8_Init();
   MX_I2C1_Init();
+  MX_TIM2_Init();
+  MX_TIM3_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   OLED_Init();
   /* USER CODE END 2 */
@@ -152,6 +178,12 @@ int main(void)
 
   /* creation of IMU */
   IMUHandle = osThreadNew(IMUMain, NULL, &IMU_attributes);
+
+  /* creation of MotorEncoder */
+  MotorEncoderHandle = osThreadNew(MotorEncoderMain, NULL, &MotorEncoder_attributes);
+
+  /* creation of Servo */
+  ServoHandle = osThreadNew(ServoMain, NULL, &Servo_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -248,6 +280,178 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 100;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 1000;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+  HAL_TIM_MspPostInit(&htim1);
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_Encoder_InitTypeDef sConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 0;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 65535;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 10;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 10;
+  if (HAL_TIM_Encoder_Init(&htim2, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_Encoder_InitTypeDef sConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 0;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 65535;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 10;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 10;
+  if (HAL_TIM_Encoder_Init(&htim3, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
 
 }
 
@@ -402,15 +606,14 @@ void StartDefaultTask(void *argument)
 void motorsMain(void *argument)
 {
   /* USER CODE BEGIN motorsMain */
-	mtr_init(&htim8);
+	mtr_init(&htim8, &htim2, &htim3);
+	char oledbuf[16];
   /* Infinite loop */
-  for(;;)
-  {
-	  mtrA_mov(DIR_FWD, 1000);
-	  mtrB_mov(DIR_FWD, 1000);
-	  osDelay(2000);
-	  mtrA_mov(DIR_BCK, 1000);
-	  mtrB_mov(DIR_BCK, 1000);
+  for(;;) {
+	  mtr_mov_deg(720, 720);
+	  sprintf(oledbuf, "Systick = %d", HAL_GetTick());
+	  OLED_ShowString(15, 25, &oledbuf[0]);
+	  OLED_Refresh_Gram();
 	  osDelay(2000);
   }
   /* USER CODE END motorsMain */
@@ -442,21 +645,49 @@ void IMUMain(void *argument)
 	{
 		read_accel(&accel);
 
-		sprintf(oledbuf, "x = %5.3f", accel.x);
-		OLED_ShowString(10, 10, &oledbuf[0]);
-		OLED_Refresh_Gram();
-
-		sprintf(oledbuf, "y = %5.3f", accel.y);
-		OLED_ShowString(10, 25, &oledbuf[0]);
-		OLED_Refresh_Gram();
-
-		sprintf(oledbuf, "z = %5.3f", accel.z);
-		OLED_ShowString(10, 40, &oledbuf[0]);
-		OLED_Refresh_Gram();
-
 		osDelay(50);
 	}
   /* USER CODE END IMUMain */
+}
+
+/* USER CODE BEGIN Header_MotorEncoderMain */
+/**
+* @brief Function implementing the MotorEncoder thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_MotorEncoderMain */
+void MotorEncoderMain(void *argument)
+{
+  /* USER CODE BEGIN MotorEncoderMain */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END MotorEncoderMain */
+}
+
+/* USER CODE BEGIN Header_ServoMain */
+/**
+* @brief Function implementing the Servo thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_ServoMain */
+void ServoMain(void *argument)
+{
+  /* USER CODE BEGIN ServoMain */
+	// turn it to straight forward
+	servoInit();
+  /* Infinite loop */
+	// fd
+	for(;;)
+  {
+		//turn(direction);
+    osDelay(1);
+  }
+  /* USER CODE END ServoMain */
 }
 
 /**

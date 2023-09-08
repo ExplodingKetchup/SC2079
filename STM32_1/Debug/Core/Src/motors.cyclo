@@ -1,0 +1,8 @@
+../Core/Src/motors.c:20:6:mtr_init	1
+../Core/Src/motors.c:41:6:mtrA_init	1
+../Core/Src/motors.c:58:6:mtrB_init	1
+../Core/Src/motors.c:75:6:mtrA_mov	3
+../Core/Src/motors.c:93:6:mtrB_mov	3
+../Core/Src/motors.c:111:6:mtr_mov	3
+../Core/Src/motors.c:120:6:mtr_mov_deg	3
+../Core/Src/motors.c:129:6:PID_Control	3
