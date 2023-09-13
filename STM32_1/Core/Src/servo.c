@@ -5,57 +5,37 @@
  *      Author: Duriana
  */
 #include "servo.h"
+#include "cmsis_os.h"
 
-int cur_direction, target_direction; // 0 as left, 1 as straight, 2 as right
+uint8_t cur_direction; // 0 as left, 1 as straight, 2 as right
 TIM_HandleTypeDef* htim1Ptr;
 
 void turnLeft(){
-	if(cur_direction == 0){
-		return;
-	}else if(cur_direction == 1){
-		htim1Ptr->Instance->CCR4=110;
-		HAL_Delay(250);
-	}else{
-		// cur_direction == 2
-		htim1Ptr->Instance->CCR4=145;
-		HAL_Delay(250);
-		htim1Ptr->Instance->CCR4=110;
-		HAL_Delay(250);
-	}
-	cur_direction = 0;
+	htim1Ptr->Instance->CCR4=1000;
+	osDelay(700);
+	cur_direction = LEFT;
 }
 void turnRight(){
-	if(cur_direction == 0){
-		htim1Ptr->Instance->CCR4=155;
-		HAL_Delay(250);
-		htim1Ptr->Instance->CCR4=200;
-		HAL_Delay(250);
-	}else if(cur_direction == 1){
-		htim1Ptr->Instance->CCR4=200;
-		HAL_Delay(250);
-	}else{
-		// cur_direction == 2
-		return;
-	}
-	cur_direction = 2;
+	htim1Ptr->Instance->CCR4=2200;
+	osDelay(700);
+	cur_direction = RIGHT;
 }
 void turnStraight(){
-	if(cur_direction == 0){
-		htim1Ptr->Instance->CCR4=155;
-		HAL_Delay(250);
-	}else if(cur_direction == 2){
-		htim1Ptr->Instance->CCR4=145;
-		HAL_Delay(250);
+	if(cur_direction == LEFT){
+		htim1Ptr->Instance->CCR4=1548;
+		osDelay(700);
+	}else if(cur_direction == RIGHT){
+		htim1Ptr->Instance->CCR4=1457;
+		osDelay(700);
 	}else{
 		return;
 	}
-	cur_direction = 1;
+	cur_direction = STRAIGHT;
 }
-void turn(int target){
-	target_direction = target;
-	if(target == 0){
+void turnServo(uint8_t target){
+	if(target == LEFT){
 		turnLeft();
-	}else if(target == 1){
+	}else if(target == STRAIGHT){
 		turnStraight();
 	}else{
 		turnRight();
@@ -65,19 +45,12 @@ void servoInit(TIM_HandleTypeDef* htim){
 	htim1Ptr = htim;
 	HAL_TIM_PWM_Start(htim, TIM_CHANNEL_4);
 	cur_direction = 1;
-	target_direction = 1;
-	htim1Ptr->Instance->CCR4=110;
-	HAL_Delay(250);
-	htim1Ptr->Instance->CCR4=155;
-	HAL_Delay(250);
-	htim1Ptr->Instance->CCR4=200;
-	HAL_Delay(250);
-	htim1Ptr->Instance->CCR4=145;
-	HAL_Delay(250);
-	htim1Ptr->Instance->CCR4=110;
-	HAL_Delay(250);
-	htim1Ptr->Instance->CCR4=155;
-	HAL_Delay(250);
+	htim1Ptr->Instance->CCR4=2200;
+	osDelay(700);
+	htim1Ptr->Instance->CCR4=1000;
+	osDelay(700);
+	htim1Ptr->Instance->CCR4=1548;
+	osDelay(700);
 
 }
 

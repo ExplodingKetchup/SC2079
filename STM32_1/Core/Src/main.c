@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -50,6 +51,46 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim8;
 
+/* Definitions for defaultTask */
+osThreadId_t defaultTaskHandle;
+const osThreadAttr_t defaultTask_attributes = {
+  .name = "defaultTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for motorServo */
+osThreadId_t motorServoHandle;
+const osThreadAttr_t motorServo_attributes = {
+  .name = "motorServo",
+  .stack_size = 2048 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
+};
+/* Definitions for imu */
+osThreadId_t imuHandle;
+const osThreadAttr_t imu_attributes = {
+  .name = "imu",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
+};
+/* Definitions for ultrasound */
+osThreadId_t ultrasoundHandle;
+const osThreadAttr_t ultrasound_attributes = {
+  .name = "ultrasound",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
+};
+/* Definitions for uart */
+osThreadId_t uartHandle;
+const osThreadAttr_t uart_attributes = {
+  .name = "uart",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
+/* Definitions for ori_semaphore */
+osSemaphoreId_t ori_semaphoreHandle;
+const osSemaphoreAttr_t ori_semaphore_attributes = {
+  .name = "ori_semaphore"
+};
 /* USER CODE BEGIN PV */
 float orientation = 0;
 
@@ -75,24 +116,18 @@ static void MX_I2C1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM1_Init(void);
+void StartDefaultTask(void *argument);
+void StartMotorServo(void *argument);
+void StartIMU(void *argument);
+void StartUS(void *argument);
+void StartUART(void *argument);
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
-	if (htim == &htim2) {		// Motor A's interrupt
-		uint32_t counter = __HAL_TIM_GET_COUNTER(htim);
-		mtrAPID.count = (int16_t)counter;
-		mtrAPID.angle = (int)((mtrAPID.count/2)*360/(PULSE_PER_REV));
-	}
-	if (htim == &htim3) {		// Motor B's interrupt
-		uint32_t counter = __HAL_TIM_GET_COUNTER(htim);
-		mtrBPID.count = (int16_t)counter;
-		mtrBPID.angle = (int)((mtrBPID.count/2)*360/(PULSE_PER_REV));
-	}
-}
 /* USER CODE END 0 */
 
 /**
@@ -129,24 +164,83 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
-  uint32_t ori_lastSampleTime = 0;
-
   OLED_Init();
-
-  mtr_init(&htim8, &htim2, &htim3, &mtrA, &mtrB, &mtrAPID, &mtrBPID);
-
-  imu_init(&hi2c1);
 
   /* USER CODE END 2 */
 
+  /* Init scheduler */
+  osKernelInitialize();
+
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* Create the semaphores(s) */
+  /* creation of ori_semaphore */
+  ori_semaphoreHandle = osSemaphoreNew(1, 1, &ori_semaphore_attributes);
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* creation of defaultTask */
+  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+
+  /* creation of motorServo */
+  motorServoHandle = osThreadNew(StartMotorServo, NULL, &motorServo_attributes);
+
+  /* creation of imu */
+  imuHandle = osThreadNew(StartIMU, NULL, &imu_attributes);
+
+  /* creation of ultrasound */
+  ultrasoundHandle = osThreadNew(StartUS, NULL, &ultrasound_attributes);
+
+  /* creation of uart */
+  uartHandle = osThreadNew(StartUART, NULL, &uart_attributes);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+  /* USER CODE BEGIN RTOS_EVENTS */
+  /* add events, ... */
+  /* USER CODE END RTOS_EVENTS */
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+	//mtrA_mov(DIR_BCK, 2000);
+	//mtrB_mov(DIR_BCK, 2000);
   while (1)
   {
-	  mtr_mov_deg(720, 720);
-	  orientation = calcOri(ori_lastSampleTime, orientation);
-	  ori_lastSampleTime = HAL_GetTick();
-	  HAL_Delay(2000);
+	  //mtr_mov_deg(720, 720);
+	  /*mtrAPID.count = (int16_t)counter;
+	  mtrAPID.angle = (int)((mtrAPID.count/2)*360/(PULSE_PER_REV));
+	  counter = __HAL_TIM_GET_COUNTER(&htim3);
+	  mtrBPID.count = (int16_t)counter;
+	  mtrBPID.angle = (int)((mtrBPID.count/2)*360/(PULSE_PER_REV));*/
+	  /*mtr_mov_cnt(15000, 15000);
+	    OLED_Clear();
+	    		sprintf(oledbuf, "A = %d", mtrAPID.count);
+	    		OLED_ShowString(10, 15, &oledbuf[0]);
+	    		OLED_Refresh_Gram();
+	    		sprintf(oledbuf, "B = %d", mtrBPID.count);
+	    		OLED_ShowString(10, 35, &oledbuf[0]);
+	    		OLED_Refresh_Gram();
+	    HAL_Delay(5000);
+	    mtr_mov_cnt(-15000, -15000);*/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -250,9 +344,9 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 160;
+  htim1.Init.Prescaler = 15;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 1000;
+  htim1.Init.Period = 20000;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
@@ -328,11 +422,11 @@ static void MX_TIM2_Init(void)
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
-  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_FALLING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
   sConfig.IC1Filter = 10;
-  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_FALLING;
   sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
   sConfig.IC2Filter = 10;
@@ -377,11 +471,11 @@ static void MX_TIM3_Init(void)
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
-  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_FALLING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
   sConfig.IC1Filter = 10;
-  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_FALLING;
   sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
   sConfig.IC2Filter = 10;
@@ -521,8 +615,160 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
+	if (htim == &htim2) {		// Motor A's interrupt
+		mtrAPID.count = -(int16_t)__HAL_TIM_GET_COUNTER(htim);
+		//mtrAPID.angle = (int)((mtrAPID.count/2)*360/(PULSE_PER_REV));
+	}
+	if (htim == &htim3) {		// Motor B's interrupt
+		mtrBPID.count = (int16_t)__HAL_TIM_GET_COUNTER(htim);
+		//mtrBPID.angle = (int)((mtrBPID.count/2)*360/(PULSE_PER_REV));
+	}
+}
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void *argument)
+{
+  /* USER CODE BEGIN 5 */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_StartMotorServo */
+/**
+* @brief Function implementing the motorServo thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartMotorServo */
+void StartMotorServo(void *argument)
+{
+  /* USER CODE BEGIN StartMotorServo */
+	mtr_init(&htim8, &htim2, &htim3, &mtrA, &mtrB, &mtrAPID, &mtrBPID, &ori_semaphoreHandle);
+	servoInit(&htim1);
+  /* Infinite loop */
+  for(;;)
+  {
+	  /*mtr_mov_cm(150, 150);
+	  osDelay(5000);
+	  mtr_mov_cm(-150, -150);
+	  osDelay(5000);*/
+	  /*mtr_mov_cm(-100, -100);
+	  osDelay(10000);
+	  mtr_mov_cm(-100, -100);
+	  osDelay(10000);*/
+	  /*turnServo(LEFT);
+	  mtrA_mov(DIR_BCK, 2000);
+	  mtrB_mov(DIR_FWD, 2000);*/
+	  /*mtrA_mov(DIR_FWD, 0);
+	  mtrB_mov(DIR_FWD, 0);
+	  turnServo(LEFT);
+	  mtrA_mov(DIR_FWD, 2000);
+	  mtrB_mov(DIR_FWD, 2000);
+	  osDelay(500);
+	  mtrA_mov(DIR_FWD, 0);
+	  mtrB_mov(DIR_FWD, 0);
+	  turnServo(RIGHT);
+	  mtrA_mov(DIR_BCK, 2000);
+	  mtrB_mov(DIR_BCK, 2000);
+	  osDelay(500);*/
+	  mtr_mov_cm(100, 100);
+	  turn(90, &orientation);
+	  //osDelay(5000);
+	  mtr_mov_cm(100, 100);
+	  turn(180, &orientation);
+	  //osDelay(5000);
+	  mtr_mov_cm(100, 100);
+	  turn(270, &orientation);
+	  //osDelay(5000);
+	  mtr_mov_cm(100, 100);
+	  turn(0, &orientation);
+	  osDelay(5000);
+	  /*OLED_Clear();
+		sprintf(oledbuf, "A = %d", mtrAPID.count);
+		OLED_ShowString(10, 15, &oledbuf[0]);
+		OLED_Refresh_Gram();
+		sprintf(oledbuf, "B = %d", mtrBPID.count);
+		OLED_ShowString(10, 35, &oledbuf[0]);
+		OLED_Refresh_Gram();*/
+  }
+  /* USER CODE END StartMotorServo */
+}
+
+/* USER CODE BEGIN Header_StartIMU */
+/**
+* @brief Function implementing the imu thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartIMU */
+void StartIMU(void *argument)
+{
+  /* USER CODE BEGIN StartIMU */
+	uint32_t ori_lastSampleTime = 0;
+	imu_init(&hi2c1);
+  /* Infinite loop */
+  for(;;)
+  {
+	  orientation = calcOri(&ori_lastSampleTime, orientation);
+	  /*OLED_Clear();
+	  sprintf(oledbuf, "Ori = %5.1f", orientation);
+	  OLED_ShowString(10, 15, &oledbuf[0]);
+	  OLED_Refresh_Gram();
+	  sprintf(oledbuf, "Gyr_z = %5.1f", read_gyro_z());
+	  OLED_ShowString(10, 30, &oledbuf[0]);
+	  OLED_Refresh_Gram();*/
+	  osDelay(1);
+  }
+  /* USER CODE END StartIMU */
+}
+
+/* USER CODE BEGIN Header_StartUS */
+/**
+* @brief Function implementing the ultrasound thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartUS */
+void StartUS(void *argument)
+{
+  /* USER CODE BEGIN StartUS */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartUS */
+}
+
+/* USER CODE BEGIN Header_StartUART */
+/**
+* @brief Function implementing the uart thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartUART */
+void StartUART(void *argument)
+{
+  /* USER CODE BEGIN StartUART */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartUART */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.

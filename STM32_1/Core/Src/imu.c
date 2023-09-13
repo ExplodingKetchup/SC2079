@@ -6,6 +6,7 @@
  */
 #include "imu.h"
 #include "oled.h"
+#include "stdlib.h"
 
 /* Global variables */
 /*----------------------------------------------------------------*/
@@ -38,11 +39,14 @@ uint16_t ACCEL_SMPLRT_DIV_val = 0;
 /* Gyroscope */
 /*+++++++++++++++++++++++++++++++++++*/
 
+/* Gyro scale */
+uint8_t GYRO_FS_SEL_val = 0;
+
 /* Enable Gyro DLPF (default 1) */
 uint8_t GYRO_FCHOICE_val = 1;
 
 /* Digital Low pass filter config (default 0) */
-uint8_t GYRO_DLPFCFG_val = 0;
+uint8_t GYRO_DLPFCFG_val = 1;
 
 /* Gyro sample rate = 1.1 kHz/(1+GYRO_SMPLRT_DIV[7:0])
  * Only applicable when GYRO_FCHOICE = 1
@@ -62,7 +66,7 @@ uint8_t imu_init(I2C_HandleTypeDef* hi2c_ptr) {
 
 	cur_bank = get_cur_bank();
 
-	HAL_Delay(100);
+	osDelay(100);
 	uint8_t who_am_i = read_one_byte(0, 0);
 	if (who_am_i != 0xEA) { 	// read WHO_AM_I register, should receive 0xEA
 		return 2;
@@ -78,8 +82,8 @@ uint8_t imu_init(I2C_HandleTypeDef* hi2c_ptr) {
 	// Set accel low pass filter
 	if (!write_one_byte(2, B2_ACCEL_CONFIG, (ACCEL_DLPFCFG_val << 3) | ACCEL_FCHOICE_val)) return 5;
 
-	// Set gyro low pass filter
-	if (!write_one_byte(2, B2_GYRO_CONFIG_1, (GYRO_DLPFCFG_val << 3) | GYRO_FCHOICE_val)) return 6;
+	// Set gyro low pass filter and scale
+	if (!write_one_byte(2, B2_GYRO_CONFIG_1, (((GYRO_DLPFCFG_val << 2) | GYRO_FS_SEL_val) << 1) | GYRO_FCHOICE_val)) return 6;
 
 	// Set accel sample rate divider
 	if (ACCEL_SMPLRT_DIV_val > 0x0FFF) ACCEL_SMPLRT_DIV_val = 0x0FFF;
@@ -293,6 +297,9 @@ void gyro_caliberate() {
 	gyro_bias_x = -gyro_bias_x / 4;
 	gyro_bias_y = -gyro_bias_y / 4;
 	gyro_bias_z = -gyro_bias_z / 4;
+	/*gyro_bias_x = -gyro_bias_x * 2;
+	gyro_bias_y = -gyro_bias_y * 2;
+	gyro_bias_z = -gyro_bias_z * 2;*/
 	// Separate gyro_bias into 2 parts: [15:8] and [7:0]
 	uint8_t gyro_bias_x_h = (uint8_t)(gyro_bias_x >> 8);
 	uint8_t gyro_bias_x_l = (uint8_t)gyro_bias_x;
@@ -309,9 +316,18 @@ void gyro_caliberate() {
 	write_one_byte(2, B2_ZG_OFFS_USRL, gyro_bias_z_l);
 }
 
-float calcOri(uint32_t lastSampleTime, float lastSampleOri) {
-	float angular_speed = read_gyro_z();
+float calcOri(uint32_t* lastSampleTime, float lastSampleOri) {
+	float angular_speed = 0;
+	angular_speed += read_gyro_z();
+	if (abs(angular_speed) < MIN_ANG_SPD)
+		angular_speed = 0;
 	uint32_t curTime = HAL_GetTick();
-	uint16_t dt = lastSampleTime - curTime;
-	return lastSampleOri + angular_speed * dt;
+	uint16_t dt = curTime - (*lastSampleTime);
+	*lastSampleTime = curTime;
+	float result = lastSampleOri + angular_speed * dt / 1000;
+	while (result >= 360)
+		result -= 360;
+	while (result < 0)
+		result += 360;
+	return result;
 }

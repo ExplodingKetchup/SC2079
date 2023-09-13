@@ -58,7 +58,10 @@
 #define B2_YG_OFFS_USRL 0x06
 #define B2_ZG_OFFS_USRH 0x07
 #define B2_ZG_OFFS_USRL 0x08
-#define GYRO_SENSITIVITY_SCALE 131
+#define GYRO_SENSITIVITY_SCALE 131.0f
+
+/* Other constants */
+#define MIN_ANG_SPD 2.0f	// Min angular speed to NOT be consider as noise (+-)
 
 /* Struct to store accelerometer / gyroscope measurement results (in 3 axises) */
 typedef struct {
@@ -95,7 +98,7 @@ int16_t read_raw_gyro_z();
 float read_gyro_z();
 void read_gyro(AccelGyroResult* gyro);
 void gyro_caliberate();
-float calcOri(uint32_t lastSampleTime, float lastSampleOri);
+float calcOri(uint32_t* lastSampleTime, float lastSampleOri);
 
 
 #endif /* INC_IMU_H_ */
