@@ -67,17 +67,24 @@ void Error_Handler(void);
 #define BIN1_GPIO_Port GPIOA
 #define BIN2_Pin GPIO_PIN_5
 #define BIN2_GPIO_Port GPIOA
+#define US_ECHO_Pin GPIO_PIN_9
+#define US_ECHO_GPIO_Port GPIOE
+#define LED3_Pin GPIO_PIN_10
+#define LED3_GPIO_Port GPIOE
 #define PWMA_Pin GPIO_PIN_6
 #define PWMA_GPIO_Port GPIOC
 #define PWMB_Pin GPIO_PIN_7
 #define PWMB_GPIO_Port GPIOC
+#define US_TRIG_Pin GPIO_PIN_4
+#define US_TRIG_GPIO_Port GPIOB
 #define IMU_SCL_Pin GPIO_PIN_8
 #define IMU_SCL_GPIO_Port GPIOB
 #define IMU_SDA_Pin GPIO_PIN_9
 #define IMU_SDA_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-
+#define MIN_US_ECHO 600
+#define PI 3.14159265359f
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

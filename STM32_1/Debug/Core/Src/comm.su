@@ -1,0 +1,6 @@
+../Core/Src/comm.c:28:6:comm_init	24	static
+../Core/Src/comm.c:51:19:uart_send	16	static
+../Core/Src/comm.c:82:6:uart_ack	16	static
+../Core/Src/comm.c:93:19:uart_receive	16	static
+../Core/Src/comm.c:111:9:getCurInstId	4	static
+../Core/Src/comm.c:115:9:newCpltErr	16	static

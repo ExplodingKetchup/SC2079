@@ -18,5 +18,6 @@ void turnLeft();
 void turnRight();
 void turnStraight();
 void turnServo(uint8_t);
+uint8_t getServoDir();
 void servoInit(TIM_HandleTypeDef* htim);
 #endif /* CORE_INC_SERVO_H_ */

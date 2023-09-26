@@ -6,6 +6,7 @@
  */
 
 #include "motors.h"
+#include "main.h"
 #include "servo.h"
 #include "oled.h"
 #include <math.h>
@@ -15,19 +16,35 @@ MotorData* motorA;
 MotorData* motorB;
 MotorPIDData* motorAPID;
 MotorPIDData* motorBPID;
+MotorServoStatus* backup;
+float* ori;
 TIM_HandleTypeDef* htim8Ptr;	// Pointer of the timer for pwm generation (by default should pass &htim8)
 TIM_HandleTypeDef* htim2Ptr;	// Pointer of the timer for motor A encoding (by default should pass &htim2)
 TIM_HandleTypeDef* htim3Ptr;	// Pointer of the timer for motor B encoding (by default should pass &htim3)
 osSemaphoreId_t* ori_semaphoreHandlePtr;
 
+
+/* Private function prototypes */
+void backup_reset();
+
+/* All functions */
+
 void mtr_init(TIM_HandleTypeDef* pwm_htimPtr, TIM_HandleTypeDef* encodeA_htimPtr, TIM_HandleTypeDef* encodeB_htimPtr,
-		MotorData* mtrA, MotorData* mtrB, MotorPIDData* mtrAPID, MotorPIDData* mtrBPID, osSemaphoreId_t* oriSemHandlePtr) {
+		MotorData* mtrA, MotorData* mtrB, MotorPIDData* mtrAPID, MotorPIDData* mtrBPID, MotorServoStatus* backupObj,
+		float* orientation, osSemaphoreId_t* oriSemHandlePtr) {
 
 	motorA = mtrA;
 	motorB = mtrB;
+	motorA->suspend = 0;
+	motorA->suspend = 0;
+
 	motorAPID = mtrAPID;
 	motorBPID = mtrBPID;
 
+	backup = backupObj;
+	backup_reset();
+
+	ori = orientation;
 	ori_semaphoreHandlePtr = oriSemHandlePtr;
 
 	htim8Ptr = pwm_htimPtr;
@@ -43,6 +60,14 @@ void mtr_init(TIM_HandleTypeDef* pwm_htimPtr, TIM_HandleTypeDef* encodeA_htimPtr
 	mtrB_init(0, 0, 0, 0, 1);
 }
 
+void backup_reset() {
+	backup->servoDir = STRAIGHT;
+	backup->mtrADir = DIR_FWD;
+	backup->mtrAPWM = 0;
+	backup->mtrBDir = DIR_FWD;
+	backup->mtrBPWM = 0;
+}
+
 void mtrA_init(int16_t target, int16_t Kp, float Kd, float Ki, uint8_t reset_timer) {
 
 	if (reset_timer)
@@ -52,10 +77,7 @@ void mtrA_init(int16_t target, int16_t Kp, float Kd, float Ki, uint8_t reset_tim
 	motorA->pwmVal = 0;
 
 	motorAPID->count = -(int16_t)__HAL_TIM_GET_COUNTER(htim2Ptr);       		// Counter (signed value)
-	//motorAPID->angle = 0;      			// angle of rotation, in degree resolution = 360/260
-	//motorAPID->target_angle = target_angle; 		// target angle of rotation,
 	motorAPID->target = target;
-	//motorAPID->error = motorAPID->target_angle - motorAPID->angle;           	// error between target and actual
 	motorAPID->error = motorAPID->target - motorAPID->count;
 	motorAPID->error_area = 0;  		// area under error - to calculate I for PI implementation
 	motorAPID->error_old = 0; 			// to calculate D for PID control
@@ -74,10 +96,7 @@ void mtrB_init(int16_t target, int16_t Kp, float Kd, float Ki, uint8_t reset_tim
 	motorB->pwmVal = 0;
 
 	motorBPID->count = (int16_t)__HAL_TIM_GET_COUNTER(htim3Ptr);       		// Counter (signed value)
-	//motorBPID->angle = 0;      			// angle of rotation, in degree resolution = 360/260
-	//motorBPID->target_angle = target_angle; 		// target angle of rotation,
 	motorBPID->target = target;
-	//motorBPID->error = motorBPID->target_angle - motorBPID->angle;           	// error between target and actual
 	motorBPID->error = motorBPID->target - motorBPID->count;
 	motorBPID->error_area = 0;  		// area under error - to calculate I for PI implementation
 	motorBPID->error_old = 0; 			// to calculate D for PID control
@@ -123,8 +142,25 @@ void mtrB_mov(uint8_t direction, uint16_t speed) {
 	__HAL_TIM_SET_COMPARE(htim8Ptr, PWMB_TIM_CH, speed);
 }
 
+/* Set params and stop both motors */
+void mtr_stop() {
+	motorA->dir = DIR_FWD;
+	motorA->pwmVal = 0;
+	motorB->dir = DIR_FWD;
+	motorB->pwmVal = 0;
+	mtrA_mov(DIR_FWD, 0);
+	mtrB_mov(DIR_FWD, 0);
+	turnServo(STRAIGHT);
+	osDelay(100);
+}
+
 void mtr_mov(MotorData* motor) {
-	if (motor == motorA) {
+	if (motor->suspend > 0) {
+		mtr_stop();
+		mtr_continue();
+		return;
+	}
+	if (motor == motorA)  {
 		mtrA_mov(motor->dir, motor->pwmVal);
 	}
 	else if (motor == motorB) {
@@ -132,10 +168,57 @@ void mtr_mov(MotorData* motor) {
 	}
 }
 
-void mtr_stop() {
-	mtrA_mov(DIR_FWD, 0);
-	mtrB_mov(DIR_FWD, 0);
-	turnServo(STRAIGHT);
+void mtr_SetParamAndMove(MotorData* motor, uint8_t param_dir, uint32_t param_pwmVal) {
+	motor->dir = param_dir;
+	motor->pwmVal = param_pwmVal;
+	mtr_mov(motor);
+}
+
+void mtr_suspend(uint8_t mode) {
+	if (mode > 3) return;
+	if ((motorA->suspend != SUS_OFF) || (motorB->suspend != SUS_OFF)) return;	// Suspend is in effect / being resolved
+	HAL_GPIO_WritePin(GPIOE, LED3_Pin, GPIO_PIN_RESET);
+	motorA->suspend = mode;
+	motorB->suspend = mode;
+	backup->servoDir = getServoDir();
+	backup->mtrADir = motorA->dir;
+	backup->mtrAPWM = motorA->pwmVal;
+	backup->mtrBDir = motorB->dir;
+	backup->mtrBPWM = motorB->pwmVal;
+	mtr_stop();
+}
+
+void mtr_continue() {
+	if (!motorA->suspend) return;	// Not suspended or likely an error
+	if ((motorA->suspend == SUS_BACK) || (motorA->suspend == SUS_STOPPID)) {	// Needs SOSBack
+		mtr_SOSBack();
+		//HAL_GPIO_WritePin(GPIOE, LED3_Pin, GPIO_PIN_RESET);
+	}
+	if (motorA->suspend == SUS_STOPPID) {	// Stop PID, do not restore movement
+		stopPID();
+	}
+	else {									// Restore movement
+		turnServo(backup->servoDir);
+		motorA->dir = backup->mtrADir;
+		motorA->pwmVal = backup->mtrAPWM;
+		motorB->dir = backup->mtrBDir;
+		motorB->pwmVal = backup->mtrBPWM;
+		mtrA_mov(motorA->dir, motorA->pwmVal);
+		mtrB_mov(motorB->dir, motorB->pwmVal);
+	}
+	backup_reset();
+	motorA->suspend = 0;
+	motorB->suspend = 0;
+	HAL_GPIO_WritePin(GPIOE, LED3_Pin, GPIO_PIN_SET);
+}
+
+/* Used in emergency cases when car is too close to obstacles only */
+float mtr_SOSBack() {
+	mtrA_mov(DIR_BCK, 1800);
+	mtrB_mov(DIR_BCK, 1800);
+	osDelay(500);
+	mtr_stop();
+	return SOSBACK_DIST_CNT / CNT_PER_CM;
 }
 
 void mtr_mov_cnt(int target_A, int target_B) {
@@ -144,6 +227,20 @@ void mtr_mov_cnt(int target_A, int target_B) {
 	while ((abs(motorAPID->error) > MAX_PID_ERR) || (abs(motorBPID->error) > MAX_PID_ERR)) {
 		PID_Control(motorA, motorAPID);
 		PID_Control(motorB, motorBPID);
+		mtr_mov(motorA);
+		mtr_mov(motorB);
+	}
+	mtr_stop();
+}
+
+void mtr_mov_cnt_line(int target_A, int target_B) {
+	mtrA_init((int16_t)target_A, 1.2, 0.05, 0.0001, 1);
+	mtrB_init((int16_t)target_B, 1.2, 0.05, 0.0001, 1);
+	while ((abs(motorAPID->error) > MAX_PID_ERR) || (abs(motorBPID->error) > MAX_PID_ERR)) {
+		PID_Control(motorA, motorAPID);
+		PID_Control(motorB, motorBPID);
+        mtr_mov(motorA);
+        mtr_mov(motorB);
 	}
 	mtr_stop();
 	osDelay(700);
@@ -152,6 +249,8 @@ void mtr_mov_cnt(int target_A, int target_B) {
 	while ((abs(motorAPID->error) > MAX_PID_ERR) || (abs(motorBPID->error) > MAX_PID_ERR)) {
 		PID_Control(motorA, motorAPID);
 		PID_Control(motorB, motorBPID);
+		mtr_mov(motorA);
+		mtr_mov(motorB);
 	}
 	mtr_stop();
 	osDelay(500);
@@ -160,39 +259,17 @@ void mtr_mov_cnt(int target_A, int target_B) {
 	while ((abs(motorAPID->error) > MAX_PID_ERR) || (abs(motorBPID->error) > MAX_PID_ERR)) {
 		PID_Control(motorA, motorAPID);
 		PID_Control(motorB, motorBPID);
+		mtr_mov(motorA);
+		mtr_mov(motorB);
 	}
 	mtr_stop();
 }
+
 
 void mtr_mov_cm(float cm_A, float cm_B) {
 	mtr_mov_cnt((int)(cm_A * CNT_PER_CM), (int)(cm_B * CNT_PER_CM));
 }
 
-/*void PID_Control(MotorData* motor, MotorPIDData* motorPID) {
-	  //Control Loop
-	if (abs(motorPID->error)>2) { //more than 2 degree difference
-  	    motorPID->error = motorPID->target_angle - motorPID->angle;
-
-        if (motorPID->error > 0)
-        	motor->dir = DIR_FWD;	// Forward
-        else
-        	motor->dir = DIR_BCK;	// Backward
-
-        int32_t millisNow = HAL_GetTick();
-        int32_t dt = (millisNow - motorPID->millisOld); // time elapsed in millisecond
-        motorPID->millisOld = millisNow; // store the current time for next round
-
-        motorPID->error_area = motorPID->error_area + motorPID->error * dt; // area under error for Ki
-
-        int32_t error_change = motorPID->error - motorPID->error_old; // change in error
-        motorPID->error_old = motorPID->error; //store the error for next round
-        float error_rate = (float)error_change / dt; // for Kd
-
-        motor->pwmVal = (int)(motorPID->error * motorPID->Kp + motorPID->error_area * motorPID->Ki + error_rate * motorPID->Kd);  // PID
-
-        mtr_mov(motor);
-	} // if loop
-}*/
 void PID_Control(MotorData* motor, MotorPIDData* motorPID) {
 	  //Control Loop
 	if (abs(motorPID->error)>MAX_PID_ERR) { //more than 100  difference
@@ -219,66 +296,30 @@ void PID_Control(MotorData* motor, MotorPIDData* motorPID) {
         	motor->pwmVal = MAX_SPEED;
         if (motor->pwmVal < MIN_SPEED)
         	motor-> pwmVal = MIN_SPEED;
-
-        mtr_mov(motor);
 	} // if loop
 	else {
 		motor->dir = DIR_FWD;
 		motor->pwmVal = 0;
-		mtr_mov(motor);
 	}
 }
 
-/*
-void turn(float target_ori, float* orientation) {
-	//osSemaphoreWait(*ori_semaphoreHandlePtr, osWaitForever);
-	float turning_angle = target_ori - (*orientation);
-	//osSemaphoreRelease(*ori_semaphoreHandlePtr);
-	if (abs(turning_angle) < MAX_ORI_ERR)		// Too small, turn may not be accurate
-		return;
-	if (turning_angle < 0)
-		turning_angle += 360;
-
-	uint8_t near_0 = 0;
-	if ((target_ori < MAX_ORI_ERR) || (target_ori > 360 - MAX_ORI_ERR)) {
-		near_0 = 1;
-	}
-
-	if (turning_angle <= 180) {	// Turn left
-		turnServo(LEFT);
-		mtrA_mov(DIR_BCK, 1800);
-		mtrB_mov(DIR_FWD, 1800);
-	}
-	else {
-		turnServo(RIGHT);
-		mtrA_mov(DIR_FWD, 1800);
-		mtrB_mov(DIR_BCK, 2000);
-	}
-	if (!near_0) {
-		while (abs((*orientation) - target_ori) > MAX_ORI_ERR) {
-			osDelay(5);
-		}
-	}
-	else {
-		float bound_lo, bound_hi;
-		if (target_ori > 350) {
-			bound_lo = target_ori - MAX_ORI_ERR;
-			bound_hi = target_ori + MAX_ORI_ERR - 360;
-		}
-		else {
-			bound_lo = target_ori - MAX_ORI_ERR + 360;
-			bound_hi = target_ori + MAX_ORI_ERR;
-		}
-		while (((*orientation) < bound_lo) && ((*orientation) > bound_hi)) {
-			osDelay(5);
-		}
-	}
+void stopPID() {
+	motorAPID->error = 0;
+	motorBPID->error = 0;
+	motorAPID->target = motorAPID->count;
+	motorBPID->target = motorBPID->count;
 	mtr_stop();
-}*/
+	// Also clear backup
+	backup->mtrADir = DIR_FWD;
+	backup->mtrBDir = DIR_FWD;
+	backup->mtrAPWM = 0;
+	backup->mtrBPWM = 0;
+	backup->servoDir = STRAIGHT;
+}
 
-void turn(float target_ori, float* orientation) {
+void turn(float target_ori) {
 	//osSemaphoreWait(*ori_semaphoreHandlePtr, osWaitForever);
-	float turning_angle = target_ori - (*orientation);
+	float turning_angle = target_ori - (*ori);
 	//osSemaphoreRelease(*ori_semaphoreHandlePtr);
 	if (abs(turning_angle) < MAX_ORI_ERR)		// Too small, turn may not be accurate
 		return;
@@ -296,34 +337,34 @@ void turn(float target_ori, float* orientation) {
 		if (turning_angle <= 180) {	// Turn left
 			if (mtr_dir == 1) {
 				turnServo(LEFT);
-				mtrA_mov(DIR_FWD, 1200);
-				mtrB_mov(DIR_FWD, 1200);
+				mtr_SetParamAndMove(motorA, DIR_FWD, 1200);
+				mtr_SetParamAndMove(motorB, DIR_FWD, 1200);
 				mtr_dir = 2;
 			}
 			else {
 				turnServo(RIGHT);
-				mtrA_mov(DIR_BCK, 1200);
-				mtrB_mov(DIR_BCK, 1200);
+				mtr_SetParamAndMove(motorA, DIR_BCK, 1200);
+				mtr_SetParamAndMove(motorB, DIR_BCK, 1200);
 				mtr_dir = 1;
 			}
 		}
 		else {
 			if (mtr_dir == 1) {
 				turnServo(RIGHT);
-				mtrA_mov(DIR_FWD, 1200);
-				mtrB_mov(DIR_FWD, 1200);
+				mtr_SetParamAndMove(motorA, DIR_FWD, 1200);
+				mtr_SetParamAndMove(motorB, DIR_FWD, 1200);
 				mtr_dir = 2;
 			}
 			else {
 				turnServo(LEFT);
-				mtrA_mov(DIR_BCK, 1200);
-				mtrB_mov(DIR_BCK, 1200);
+				mtr_SetParamAndMove(motorA, DIR_BCK, 1200);
+				mtr_SetParamAndMove(motorB, DIR_BCK, 1200);
 				mtr_dir = 1;
 			}
 		}
 		if (!near_0) {
 			for (int i = 0; i < 100; i++) {
-				if (abs((*orientation) - target_ori) < MAX_ORI_ERR) {
+				if (abs((*ori) - target_ori) < MAX_ORI_ERR) {
 					mtr_dir = 0;
 					break;
 				}
@@ -341,7 +382,7 @@ void turn(float target_ori, float* orientation) {
 				bound_hi = target_ori + MAX_ORI_ERR;
 			}
 			for (int i = 0; i < 100; i++) {
-				if (((*orientation) > bound_lo) || ((*orientation) < bound_hi)) {
+				if (((*ori) > bound_lo) || ((*ori) < bound_hi)) {
 					mtr_dir = 0;
 					break;
 				}
@@ -351,4 +392,28 @@ void turn(float target_ori, float* orientation) {
 		mtr_stop();
 	}
 	mtr_stop();
+}
+
+/*
+ * @brief Run instruction inst
+ * @retval Distance moved in cm (linear). If execute turn, always return 0 even if SOSBack is called.
+ */
+float executeInstruction(Instruction* inst, CompleteError* cpltErr) {
+	float retval;
+	if (inst->type == INST_TYPE_GOSTRAIGHT) {
+		mtr_mov_cm((float)inst->val, (float)inst->val);
+		retval = ((float)(motorAPID->count + motorBPID->count) / 2) / CNT_PER_CM;
+	}
+	else if (inst->type == INST_TYPE_TURN) {
+		turn((float)inst->val);
+		retval = 0;
+	}
+	else {
+		return 0;
+	}
+	cpltErr->finished = 1;
+	if (cpltErr->type == CPLTERR_TYPE_UNDEFINED) {
+		cpltErr->type = CPLTERR_TYPE_CPLT;
+	}
+	return retval;
 }

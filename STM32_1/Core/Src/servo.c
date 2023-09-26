@@ -41,6 +41,9 @@ void turnServo(uint8_t target){
 		turnRight();
 	}
 }
+uint8_t getServoDir() {
+	return cur_direction;
+}
 void servoInit(TIM_HandleTypeDef* htim){
 	htim1Ptr = htim;
 	HAL_TIM_PWM_Start(htim, TIM_CHANNEL_4);
