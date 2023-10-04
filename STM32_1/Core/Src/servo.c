@@ -12,21 +12,21 @@ TIM_HandleTypeDef* htim1Ptr;
 
 void turnLeft(){
 	htim1Ptr->Instance->CCR4=1000;
-	osDelay(700);
+	osDelay(500);
 	cur_direction = LEFT;
 }
 void turnRight(){
 	htim1Ptr->Instance->CCR4=2200;
-	osDelay(700);
+	osDelay(500);
 	cur_direction = RIGHT;
 }
 void turnStraight(){
 	if(cur_direction == LEFT){
 		htim1Ptr->Instance->CCR4=1548;
-		osDelay(700);
+		osDelay(500);
 	}else if(cur_direction == RIGHT){
 		htim1Ptr->Instance->CCR4=1457;
-		osDelay(700);
+		osDelay(500);
 	}else{
 		return;
 	}

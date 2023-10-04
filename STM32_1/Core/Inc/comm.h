@@ -27,7 +27,14 @@
  *
  *	Val (signed int):
  *	For going straight, Val = distance to move (in cm); positive = forward, negative = backward
- *	For turning, Val = degree to turn. Range: [0, 360] (inclusive of 0 and 360)
+ *	For turning,
+ *		Val = degree to turn. Range: [0, 360) (inclusive of 0 but not 360) (Turn on the spot, slow and will introduce drift)
+ *		Val = 360 + 90		--> Car turn (forward, to left, face left)
+ *		Val = 360 + 270		--> Car turn (forward, to right, face right)
+ *		Val = -90			--> Car turn (backward, to left, face right)
+ *		Val = -270			--> Car turn (backward, to right, face left)
+ *
+ *	Command decode and validity check will be done in executeInstruction()
  *
  *	InstructionID (unsigned int):
  *	ID of instruction receive OR Corresponding ID of Complete / Error
@@ -82,6 +89,7 @@
 #define CPLTERR_TYPE_UNDEFINED 2
 
 #define UART_ACK_MAX_DELAY 5000
+#define UART_PACKET_SIZE 4
 
 /* Struct for instructions (Received) */
 typedef struct {
@@ -90,18 +98,21 @@ typedef struct {
 	int16_t val;
 } Instruction;
 
-/* Struct for Complete / Error (Transmit) */
+/*
+ * Struct for Complete / Error (Transmit)
+ * New instance init only by newCpltErr
+*/
 typedef struct {
 	uint8_t id;
 	uint8_t type;
 	int16_t pos_x;
 	int16_t pos_y;
-	uint8_t finished;
+	uint8_t finished;		// Only assigned to by executeInstruction()
 } CompleteError;
 
 void comm_init(UART_HandleTypeDef* uart, Instruction* curInstObjRef, CompleteError* cpltErrObjRef);
 HAL_StatusTypeDef uart_send();
-HAL_StatusTypeDef uart_receive();
+HAL_StatusTypeDef uart_receive(const uint8_t* uartbuf);
 uint8_t getCurInstId();
 uint8_t newCpltErr(uint8_t id);
 

@@ -13,7 +13,7 @@
 uint8_t instructionId = 0;
 uint8_t ack_tx = 0;				// ID of Complete / Error ACKed by RPI
 
-uint8_t uartbuf[4];
+uint8_t uartbuf[16];
 
 UART_HandleTypeDef* huart3Ptr;
 Instruction* curInstPtr;
@@ -43,8 +43,6 @@ void comm_init(UART_HandleTypeDef* uart, Instruction* curInstObjRef, CompleteErr
 	cpltErrPtr->pos_y = 0;
 	cpltErrPtr->finished = 1;
 
-	HAL_UART_Receive_IT(huart3Ptr, (uint8_t*) uartbuf, 4);
-
 	return;
 }
 
@@ -64,6 +62,8 @@ HAL_StatusTypeDef uart_send() {
 			osDelay(500);
 		}
 		// Waiting for ACK
+		// Disable ack from rpi
+		ack_tx++;
 		for (int i = 0; i < 10; i++) {
 			if (ack_tx < cpltErrPtr->id) {
 				osDelay(UART_ACK_MAX_DELAY / 10);
@@ -84,25 +84,27 @@ void uart_ack(uint8_t id) {
 	uartbuf[1] = 0x43;
 	uartbuf[2] = 0x4B;
 	uartbuf[3] = id;
-	while (HAL_UART_Transmit(huart3Ptr, (uint8_t*)uartbuf, 4, UART_ACK_MAX_DELAY) != HAL_OK) {
-		osDelay(500);
-	}
+	HAL_UART_Transmit(huart3Ptr, (uint8_t*)uartbuf, 4, UART_ACK_MAX_DELAY);
 	return;
 }
 
-HAL_StatusTypeDef uart_receive() {
-	uint8_t id = uartbuf[3];
-	if (uartbuf[0] == 0x41) {	// ACK from RPI
-		ack_tx = id;
-		return HAL_OK;
+HAL_StatusTypeDef uart_receive(const uint8_t* buf) {
+	uint8_t id = buf[3];
+	if ((buf[0] == 0x41) && (id == ack_tx + 1)) {			// ACK from RPI is in correct order
+		if ((cpltErrPtr->id == id) && (cpltErrPtr->finished)) {	// Check if the ACK id is replying to CpltErr STM is sending
+			ack_tx = id;
+			return HAL_OK;
+		}
 	}
-	if (id == instructionId + 1) {		// Received instruction is correct in order
-		curInstPtr->id = id;
-		curInstPtr->type = (uartbuf[0] >> 6) & 0x01;
-		curInstPtr->val = ((int16_t)uartbuf[2] << 8) | uartbuf[1];
-		instructionId++;
-		uart_ack(instructionId);
-		return HAL_OK;
+	else if (id == instructionId + 1) {		// Received instruction is correct in order
+		if ((cpltErrPtr->id == instructionId) && (cpltErrPtr->finished)) {	// Current instruction finished
+			curInstPtr->id = id;
+			curInstPtr->type = (buf[0] >> 6) & 0x01;
+			curInstPtr->val = ((int16_t)buf[1] << 8) | buf[2];
+			instructionId++;
+			uart_ack(instructionId);
+			return HAL_OK;
+		}
 	}
 	uart_ack(instructionId);
 	return HAL_ERROR;
@@ -113,7 +115,6 @@ uint8_t getCurInstId() {
 }
 
 uint8_t newCpltErr(uint8_t id) {
-	instructionId = 1;		// For testing only, delete
 	if ((id == instructionId) && (ack_tx == id - 1)) {
 		cpltErrPtr->id = id;
 		cpltErrPtr->type = CPLTERR_TYPE_UNDEFINED;

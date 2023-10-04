@@ -117,6 +117,7 @@ void mtr_mov_cm(float target_A, float target_B);
 void PID_Control(MotorData* motor, MotorPIDData* motorPID);
 void stopPID();
 void turn(float target_ori);
+void carTurn(uint8_t mtr_dir, float turning_angle);
 float executeInstruction(Instruction* inst, CompleteError* cpltErr);
 
 #endif /* INC_MOTORS_H_ */

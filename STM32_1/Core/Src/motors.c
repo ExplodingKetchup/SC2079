@@ -180,16 +180,22 @@ void mtr_suspend(uint8_t mode) {
 	HAL_GPIO_WritePin(GPIOE, LED3_Pin, GPIO_PIN_RESET);
 	motorA->suspend = mode;
 	motorB->suspend = mode;
-	backup->servoDir = getServoDir();
-	backup->mtrADir = motorA->dir;
-	backup->mtrAPWM = motorA->pwmVal;
-	backup->mtrBDir = motorB->dir;
-	backup->mtrBPWM = motorB->pwmVal;
+	if ((mode == SUS_BACK) || (mode == SUS_STOP)) {
+		backup->servoDir = getServoDir();
+		backup->mtrADir = motorA->dir;
+		backup->mtrAPWM = motorA->pwmVal;
+		backup->mtrBDir = motorB->dir;
+		backup->mtrBPWM = motorB->pwmVal;
+	}
 	mtr_stop();
 }
 
+/*
+ * Restore movement, is called in mtr_mov() if the suspend status is on
+ */
 void mtr_continue() {
 	if (!motorA->suspend) return;	// Not suspended or likely an error
+
 	if ((motorA->suspend == SUS_BACK) || (motorA->suspend == SUS_STOPPID)) {	// Needs SOSBack
 		mtr_SOSBack();
 		//HAL_GPIO_WritePin(GPIOE, LED3_Pin, GPIO_PIN_RESET);
@@ -197,7 +203,7 @@ void mtr_continue() {
 	if (motorA->suspend == SUS_STOPPID) {	// Stop PID, do not restore movement
 		stopPID();
 	}
-	else {									// Restore movement
+	else {									// Restore movement, in case of SUS_BACK
 		turnServo(backup->servoDir);
 		motorA->dir = backup->mtrADir;
 		motorA->pwmVal = backup->mtrAPWM;
@@ -317,14 +323,15 @@ void stopPID() {
 	backup->servoDir = STRAIGHT;
 }
 
-void turn(float target_ori) {
-	//osSemaphoreWait(*ori_semaphoreHandlePtr, osWaitForever);
-	float turning_angle = target_ori - (*ori);
-	//osSemaphoreRelease(*ori_semaphoreHandlePtr);
+void turn(float turning_angle) {
 	if (abs(turning_angle) < MAX_ORI_ERR)		// Too small, turn may not be accurate
 		return;
-	if (turning_angle < 0)
-		turning_angle += 360;
+	if ((turning_angle < 0) || (turning_angle >= 360))	// Invalid turning angle
+		return;
+
+	float target_ori = (*ori) + turning_angle;
+	while (target_ori >= 360) target_ori -= 360;
+	while (target_ori < 0) target_ori += 360;
 
 	uint8_t near_0 = 0;
 	if ((target_ori < MAX_ORI_ERR) || (target_ori > 360 - MAX_ORI_ERR)) {
@@ -337,38 +344,40 @@ void turn(float target_ori) {
 		if (turning_angle <= 180) {	// Turn left
 			if (mtr_dir == 1) {
 				turnServo(LEFT);
-				mtr_SetParamAndMove(motorA, DIR_FWD, 1200);
-				mtr_SetParamAndMove(motorB, DIR_FWD, 1200);
+				mtr_SetParamAndMove(motorA, DIR_FWD, 1500);
+				mtr_SetParamAndMove(motorB, DIR_FWD, 1500);
 				mtr_dir = 2;
 			}
 			else {
 				turnServo(RIGHT);
-				mtr_SetParamAndMove(motorA, DIR_BCK, 1200);
-				mtr_SetParamAndMove(motorB, DIR_BCK, 1200);
+				mtr_SetParamAndMove(motorA, DIR_BCK, 1500);
+				mtr_SetParamAndMove(motorB, DIR_BCK, 1500);
 				mtr_dir = 1;
 			}
 		}
-		else {
+		else {						// Turn right
 			if (mtr_dir == 1) {
 				turnServo(RIGHT);
-				mtr_SetParamAndMove(motorA, DIR_FWD, 1200);
-				mtr_SetParamAndMove(motorB, DIR_FWD, 1200);
+				mtr_SetParamAndMove(motorA, DIR_FWD, 1500);
+				mtr_SetParamAndMove(motorB, DIR_FWD, 1500);
 				mtr_dir = 2;
 			}
 			else {
 				turnServo(LEFT);
-				mtr_SetParamAndMove(motorA, DIR_BCK, 1200);
-				mtr_SetParamAndMove(motorB, DIR_BCK, 1200);
+				mtr_SetParamAndMove(motorA, DIR_BCK, 1500);
+				mtr_SetParamAndMove(motorB, DIR_BCK, 1500);
 				mtr_dir = 1;
 			}
 		}
+
+		// Poll orientation value and break if needed
 		if (!near_0) {
-			for (int i = 0; i < 100; i++) {
+			for (int i = 0; i < 250; i++) {
 				if (abs((*ori) - target_ori) < MAX_ORI_ERR) {
 					mtr_dir = 0;
 					break;
 				}
-				osDelay(5);
+				osDelay(2);
 			}
 		}
 		else {
@@ -381,17 +390,110 @@ void turn(float target_ori) {
 				bound_lo = target_ori - MAX_ORI_ERR + 360;
 				bound_hi = target_ori + MAX_ORI_ERR;
 			}
-			for (int i = 0; i < 100; i++) {
+			for (int i = 0; i < 250; i++) {
 				if (((*ori) > bound_lo) || ((*ori) < bound_hi)) {
 					mtr_dir = 0;
 					break;
 				}
-				osDelay(5);
+				osDelay(2);
 			}
 		}
 		mtr_stop();
 	}
 	mtr_stop();
+}
+/*
+ * mtr_dir = { 0: stop, 1: fwd, 2: bck }
+ * turning_angle only accept 90 (left) or 270 (right)
+ */
+void carTurn(uint8_t mtr_dir, float turning_angle) {
+	// Check validity of parameters
+	if ((mtr_dir < 1) || (mtr_dir > 2))
+		return;
+	if ((turning_angle != 90) && (turning_angle != 270))
+		return;
+
+	// Calculate target orientation
+	float target_ori = (*ori) + turning_angle;
+	while (target_ori >= 360) target_ori -= 360;
+	while (target_ori < 0) target_ori += 360;
+
+	// Adjustments for near 0 degree target orientation
+	uint8_t near_0 = 0;
+	float bound_lo, bound_hi;
+	if ((target_ori < MAX_ORI_ERR) || (target_ori > 360 - MAX_ORI_ERR)) {
+		near_0 = 1;
+		if (target_ori > 350) {
+			bound_lo = target_ori - MAX_ORI_ERR;
+			bound_hi = target_ori + MAX_ORI_ERR - 360;
+		}
+		else {
+			bound_lo = target_ori - MAX_ORI_ERR + 360;
+			bound_hi = target_ori + MAX_ORI_ERR;
+		}
+	}
+
+	// Pre-turning adjustments
+	if ((turning_angle == 90) && (mtr_dir == 1)) {
+		mtr_mov_cm(5.0, 5.0);
+	}
+	else if ((turning_angle == 270) && (mtr_dir == 1)) {
+		mtr_mov_cm(9.0, 9.0);
+	}
+	else if ((turning_angle == 270) && (mtr_dir == 2)) {
+		mtr_mov_cm(11.5, 11.5);
+	}
+	else if ((turning_angle == 90) && (mtr_dir == 2)) {
+		mtr_mov_cm(10.5, 10.5);
+	}
+	mtr_stop();
+
+	// Start servo and motor in turn direction
+	if (((turning_angle == 90) && (mtr_dir == 1)) ||
+		((turning_angle == 270) && (mtr_dir == 2))) {
+		turnServo(LEFT);
+	}
+	else {
+		turnServo(RIGHT);
+	}
+	if (mtr_dir == 1) {
+		mtr_SetParamAndMove(motorA, DIR_FWD, 1800);
+		mtr_SetParamAndMove(motorB, DIR_FWD, 1800);
+	}
+	else {
+		mtr_SetParamAndMove(motorA, DIR_BCK, 2000);
+		mtr_SetParamAndMove(motorB, DIR_BCK, 2000);
+	}
+
+	// Polling orientation and break when target reached
+	while (1) {
+		if (!near_0) {
+			if (abs((*ori) - target_ori) < MAX_ORI_ERR) {
+				break;
+			}
+		}
+		else {
+			if (((*ori) > bound_lo) || ((*ori) < bound_hi)) {
+				break;
+			}
+		}
+		osDelay(2);
+	}
+	mtr_stop();
+
+	// Post-turning adjustments
+	if ((turning_angle == 90) && (mtr_dir == 1)) {
+		mtr_mov_cm(-11.5, -11.5);
+	}
+	else if ((turning_angle == 270) && (mtr_dir == 1)) {
+		mtr_mov_cm(-9.3, -9.3);
+	}
+	else if ((turning_angle == 270) && (mtr_dir == 2)) {
+		mtr_mov_cm(-6.0, -6.0);
+	}
+	else if ((turning_angle == 90) && (mtr_dir == 2)) {
+		mtr_mov_cm(-8.2, -8.2);
+	}
 }
 
 /*
@@ -405,7 +507,16 @@ float executeInstruction(Instruction* inst, CompleteError* cpltErr) {
 		retval = ((float)(motorAPID->count + motorBPID->count) / 2) / CNT_PER_CM;
 	}
 	else if (inst->type == INST_TYPE_TURN) {
-		turn((float)inst->val);
+		float turning_angle = (float)inst->val;
+		if ((turning_angle >= 0) && (turning_angle < 360)) {
+			turn(turning_angle);
+		}
+		else if (turning_angle < 0) {
+			carTurn(2, turning_angle + 360);
+		}
+		else {
+			carTurn(1, turning_angle - 360);
+		}
 		retval = 0;
 	}
 	else {

@@ -107,6 +107,7 @@ float us_distchange_x = 0;
 float us_distchange_y = 0;
 
 char oledbuf[20];
+uint8_t buf[20];
 
 uint16_t echo_upEdge = 65535;
 uint16_t echo_downEdge = 65535;
@@ -728,11 +729,17 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 			else {
 				echo = echo_downEdge - echo_upEdge;
 			}
-			if (echo < MIN_US_ECHO) {
+			echo_upEdge = 65535;
+			echo_downEdge = 65535;
+			if ((echo < MIN_US_ECHO) && (!cpltErr.finished)) {	// If car is not running, don't do anything
+				if (us_alert == 0) {	// Encounter alert first time, don't do anything
+					us_alert++;
+					return;
+				}
 				if ((curInst.type == INST_TYPE_GOSTRAIGHT) && (curInst.val > 0)) {
 					mtr_suspend(SUS_STOPPID);
 				}
-				else {
+				else if (curInst.type == INST_TYPE_TURN) {
 					if (mtrA.suspend == SUS_OFF) {
 						float distchange = (float)SOSBACK_DIST_CNT / CNT_PER_CM;
 						us_distchange_x += distchange * sin((orientation / 180) * PI);
@@ -740,9 +747,11 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 					}
 					mtr_suspend(SUS_BACK);
 				}
+				else {
+					mtr_suspend(SUS_STOP);
+				}
+				us_alert = 0;
 			}
-			echo_upEdge = 65535;
-			echo_downEdge = 65535;
 		}
 	}
 	if (htim == &htim2) {		// Motor A's interrupt
@@ -758,7 +767,10 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart) {
 	UNUSED(huart);
 
-	uart_receive();
+	//MX_USART3_UART_Init();
+	uart_receive((uint8_t*) buf);
+	//huart->RxState = HAL_UART_STATE_READY;
+	HAL_UART_Receive_IT(huart, buf, UART_PACKET_SIZE);
 
 	OLED_Clear();
 	sprintf(oledbuf, "Id: %d", curInst.id);
@@ -770,7 +782,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart) {
 	sprintf(oledbuf, "Val: %d", curInst.val);
 	OLED_ShowString(10, 45, &oledbuf[0]);
 	OLED_Refresh_Gram();
-
 }
 
 void Delay_us(uint16_t us) {
@@ -793,7 +804,7 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    osDelay(10000);
   }
   /* USER CODE END 5 */
 }
@@ -811,6 +822,7 @@ void StartMotorServo(void *argument)
 	mtr_init(&htim8, &htim2, &htim3, &mtrA, &mtrB, &mtrAPID, &mtrBPID, &backupObj, &orientation, &ori_semaphoreHandle);
 	servoInit(&htim1);
 
+	//carTurn(2, 270);
   /* Infinite loop */
   for(;;)
   {
@@ -842,13 +854,6 @@ void StartMotorServo(void *argument)
 		  cpltErr.pos_x = (int16_t)pos_x;
 		  cpltErr.pos_y = (int16_t)pos_y;
 	  }
-	  /*OLED_Clear();
-	  sprintf(oledbuf, "A = %d", mtrAPID.count);
-	  OLED_ShowString(10, 15, &oledbuf[0]);
-	  OLED_Refresh_Gram();
-	  sprintf(oledbuf, "B = %d", mtrBPID.count);
-	  OLED_ShowString(10, 30, &oledbuf[0]);
-	  OLED_Refresh_Gram();*/
 	  /*
 	  OLED_Clear();
 	  sprintf(oledbuf, "X = %5.1f", pos_x);
@@ -884,12 +889,11 @@ void StartIMU(void *argument)
 	  orientation = calcOri(&ori_lastSampleTime, orientation);
 	  /*OLED_Clear();
 	  sprintf(oledbuf, "Ori = %5.1f", orientation);
-	  OLED_ShowString(10, 15, &oledbuf[0]);
-	  OLED_Refresh_Gram();
-	  sprintf(oledbuf, "Gyr_z = %5.1f", read_gyro_z());
-	  OLED_ShowString(10, 30, &oledbuf[0]);
-	  OLED_Refresh_Gram();
-	  osDelay(1);*/
+	  OLED_ShowString(10, 45, &oledbuf[0]);
+	  OLED_Refresh_Gram();*/
+	  if (cpltErr.finished) {
+		  osDelay(1);
+	  }
   }
   /* USER CODE END StartIMU */
 }
@@ -930,9 +934,7 @@ void StartUART(void *argument)
 {
   /* USER CODE BEGIN StartUART */
 	comm_init(&huart3, &curInst, &cpltErr);
-	/*curInst.id = 1;
-	curInst.type = INST_TYPE_GOSTRAIGHT;
-	curInst.val = 150;*/
+	HAL_UART_Receive_IT(&huart3, buf, UART_PACKET_SIZE);
   /* Infinite loop */
   for(;;)
   {
@@ -944,9 +946,11 @@ void StartUART(void *argument)
 	  }
 	  // Send results
 	  if ((curInst.id == cpltErr.id) && (cpltErr.finished)) {
-		  uart_send();
+		  if (uart_send() == HAL_OK) {
+			  HAL_GPIO_WritePin(GPIOE, LED3_Pin, GPIO_PIN_RESET);
+		  }
 	  }
-	  osDelay(500);
+	  osDelay(1000);
   }
   /* USER CODE END StartUART */
 }
