@@ -173,7 +173,7 @@ public class MainActivity extends AppCompatActivity {
     private static ImageView obstacleFaceCur;
 
     private static String obstacleFaceText;
-    private List<String> obstacleFacing = new ArrayList<>();
+    private String obstacleFacing[] = new String[9];
     private static int obstacleFaceNumber;
 
     private static TextView outputNotifView;
@@ -709,7 +709,7 @@ public class MainActivity extends AppCompatActivity {
                             jsonObstacle.put("x", currentColRow[0]);
                             jsonObstacle.put("y", currentColRow[1]);
                             jsonObstacle.put("id", obstacleNum);
-                            jsonObstacle.put("d", obstacleFacing.get(i));
+                            jsonObstacle.put("d", obstacleFacing[i]);
                             jsonObstacles.put(jsonObstacle);
                         }
                     }
@@ -887,7 +887,7 @@ public class MainActivity extends AppCompatActivity {
                 ConstraintLayout obstacleGroup = obstacleViews.get(obstacleFaceNumber - 1);
                 int obstacleNum = getObstacleNumber(obstacleGroup);
                 int[] currentColRow = map.getColRowFromXY(obstacleGroup.getX(), obstacleGroup.getY(), map.getLeft(), map.getTop());
-                obstacleFacing.set(obstacleNum - 1, "error");
+                obstacleFacing[obstacleNum-1] = "NA";
                 switch (view.getId()) {
                     case R.id.face_north:
                         if (obstacleFaceCur.getRotation() == 0 && obstacleFaceCur.getVisibility() == View.VISIBLE) {
@@ -895,7 +895,7 @@ public class MainActivity extends AppCompatActivity {
                         } else {
                             obstacleFaceCur.setVisibility(View.VISIBLE);
                             obstacleFaceCur.setRotation(0);
-                            obstacleFacing.set(obstacleNum - 1, "N");
+                            obstacleFacing[obstacleNum-1] = "N";
                         }
                         break;
                     case R.id.face_east:
@@ -904,7 +904,7 @@ public class MainActivity extends AppCompatActivity {
                         } else {
                             obstacleFaceCur.setVisibility(View.VISIBLE);
                             obstacleFaceCur.setRotation(90);
-                            obstacleFacing.set(obstacleNum - 1, "E");
+                            obstacleFacing[obstacleNum-1] = "E";
                         }
                         break;
                     case R.id.face_south:
@@ -913,7 +913,7 @@ public class MainActivity extends AppCompatActivity {
                         } else {
                             obstacleFaceCur.setVisibility(View.VISIBLE);
                             obstacleFaceCur.setRotation(180);
-                            obstacleFacing.set(obstacleNum - 1, "S");
+                            obstacleFacing[obstacleNum-1] = "S";
                         }
                         break;
                     case R.id.face_west:
@@ -922,15 +922,15 @@ public class MainActivity extends AppCompatActivity {
                         } else {
                             obstacleFaceCur.setVisibility(View.VISIBLE);
                             obstacleFaceCur.setRotation(270);
-                            obstacleFacing.set(obstacleNum - 1, "W");
+                            obstacleFacing[obstacleNum-1] = "W";
                         }
                         break;
                 }
 
 
-                outputNotif = String.format("Obstacle: %d, Col: %d, Row: %d, Facing: %s\n", obstacleNum, currentColRow[0], currentColRow[1], obstacleFacing.get(obstacleNum-1));
+                outputNotif = String.format("Obstacle: %d, Col: %d, Row: %d, Facing: %s\n", obstacleNum, currentColRow[0], currentColRow[1], obstacleFacing[obstacleNum-1]);
 //                outputNotif = String.format("Obstacle: %d, Facing: %s", obstacleNum, obstacleFacing.get(obstacleNum-1));
-                if (!obstacleFacing.get(obstacleNum-1).equals("error")) {
+                if (!obstacleFacing[obstacleNum-1].equals("NA")) {
                     System.out.printf(outputNotif);
                     System.out.println();
                     outputNotifView.setText(outputNotif);
