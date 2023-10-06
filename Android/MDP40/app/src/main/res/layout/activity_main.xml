@@ -755,8 +755,8 @@
 
         <TableLayout
             android:id="@+id/btnTableLayout"
-            android:layout_width="570dp"
-            android:layout_height="90dp"
+            android:layout_width="600dp"
+            android:layout_height="93dp"
             android:layout_marginTop="32dp"
             android:background="@drawable/roundedbar"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -771,14 +771,14 @@
                 android:layout_width="575dp"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_vertical"
+                android:background="#787878"
                 android:paddingTop="13dp"
-                android:paddingBottom="10dp"
-                android:background="#787878">
+                android:paddingBottom="10dp">
 
                 <!-- first element of the row-->
                 <ImageButton
                     android:id="@+id/connect_button"
-                    android:layout_width="100dp"
+                    android:layout_width="80dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="12dp"
                     android:adjustViewBounds="true"
@@ -792,7 +792,7 @@
 
                 <ImageButton
                     android:id="@+id/resetObstacles"
-                    android:layout_width="100dp"
+                    android:layout_width="80dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="12dp"
                     android:adjustViewBounds="true"
@@ -806,7 +806,7 @@
 
                 <ImageButton
                     android:id="@+id/generateRobot"
-                    android:layout_width="100dp"
+                    android:layout_width="80dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="12dp"
                     android:adjustViewBounds="true"
@@ -820,7 +820,7 @@
 
                 <ImageButton
                     android:id="@+id/calculate"
-                    android:layout_width="100dp"
+                    android:layout_width="80dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="12dp"
                     android:adjustViewBounds="true"
@@ -833,8 +833,22 @@
                     android:src="@drawable/path_button" />
 
                 <ImageButton
+                    android:id="@+id/sendJsonString"
+                    android:layout_width="80dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:adjustViewBounds="true"
+                    android:background="@null"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:maxWidth="40dp"
+                    android:maxHeight="40dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/send" />
+
+                <ImageButton
                     android:id="@+id/start_robot"
-                    android:layout_width="100dp"
+                    android:layout_width="80dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="12dp"
                     android:adjustViewBounds="true"
@@ -858,7 +872,7 @@
                 <!-- first element of the row-->
                 <TextView
                     android:id="@+id/connect_Text"
-                    android:layout_width="100dp"
+                    android:layout_width="80dp"
                     android:layout_height="40dp"
                     android:layout_marginStart="12dp"
                     android:text="Connect"
@@ -866,9 +880,10 @@
                     android:textColor="#000"
                     android:textSize="15sp"
                     app:layout_anchorGravity="center" />
+
                 <TextView
                     android:id="@+id/reset_Text"
-                    android:layout_width="100dp"
+                    android:layout_width="80dp"
                     android:layout_height="40dp"
                     android:layout_marginStart="12dp"
                     android:text="Reset"
@@ -876,9 +891,10 @@
                     android:textColor="#000"
                     android:textSize="15sp"
                     app:layout_anchorGravity="center" />
+
                 <TextView
                     android:id="@+id/robot_Text"
-                    android:layout_width="100dp"
+                    android:layout_width="80dp"
                     android:layout_height="40dp"
                     android:layout_marginStart="12dp"
                     android:text="Robot"
@@ -886,9 +902,10 @@
                     android:textColor="#000"
                     android:textSize="15sp"
                     app:layout_anchorGravity="center" />
+
                 <TextView
                     android:id="@+id/path_Text"
-                    android:layout_width="100dp"
+                    android:layout_width="80dp"
                     android:layout_height="40dp"
                     android:layout_marginStart="12dp"
                     android:text="Path"
@@ -896,9 +913,21 @@
                     android:textColor="#000"
                     android:textSize="15sp"
                     app:layout_anchorGravity="center" />
+
+                <TextView
+                    android:id="@+id/send_Text"
+                    android:layout_width="80dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="12dp"
+                    android:text="Send"
+                    android:textAlignment="center"
+                    android:textColor="#000"
+                    android:textSize="15sp"
+                    app:layout_anchorGravity="center" />
+
                 <TextView
                     android:id="@+id/start_Text"
-                    android:layout_width="100dp"
+                    android:layout_width="80dp"
                     android:layout_height="40dp"
                     android:layout_marginStart="12dp"
                     android:text="Start"

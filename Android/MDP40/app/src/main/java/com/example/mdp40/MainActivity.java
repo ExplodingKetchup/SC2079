@@ -56,6 +56,10 @@ import android.widget.Toast;
 import com.example.mdp40.databinding.ActivityMainBinding;
 import com.google.android.material.snackbar.Snackbar;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -169,6 +173,7 @@ public class MainActivity extends AppCompatActivity {
     private static ImageView obstacleFaceCur;
 
     private static String obstacleFaceText;
+    private String obstacleFacing[] = new String[9];
     private static int obstacleFaceNumber;
 
     private static TextView outputNotifView;
@@ -201,14 +206,13 @@ public class MainActivity extends AppCompatActivity {
     StringBuilder messages;
     Intent connectIntent;
 
-
     private static int[][] originalObstacleCoords = new int[8][2];
 
     private static int[][] currentObstacleCoords = new int[8][2]; // remember to expand this
 
 
     // this one is for constraint
-    private List<ConstraintLayout> obstacleViews = new ArrayList<>(); // cant be static!! - COS ITS REGENRATED ALL THE TIME - change eventually.
+    private List<ConstraintLayout> obstacleViews = new ArrayList<>(); // cant be static!! - COS ITS REGENERATED ALL THE TIME - change eventually.
 
     // for the face views
     private List<ImageView> obstacleFaceViews = new ArrayList<>();
@@ -689,6 +693,37 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        ImageButton sendJsonStringButton = (ImageButton) findViewById(R.id.sendJsonString);
+        sendJsonStringButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                try {
+                    JSONArray jsonObstacles = new JSONArray();
+                    //format {x,y,id,d}
+                    for (int i = 0; i < obstacleFaceViews.size();i++) {
+                        ConstraintLayout obstacleGroup = obstacleViews.get(i);
+                        int obstacleNum = getObstacleNumber(obstacleGroup);
+                        int[] currentColRow = map.getColRowFromXY(obstacleGroup.getX(), obstacleGroup.getY(), map.getLeft(), map.getTop());
+                        if (currentColRow[0] >= 0) {
+                            JSONObject jsonObstacle = new JSONObject();
+                            jsonObstacle.put("x", currentColRow[0]);
+                            jsonObstacle.put("y", currentColRow[1]);
+                            jsonObstacle.put("id", obstacleNum);
+                            jsonObstacle.put("d", obstacleFacing[i]);
+                            jsonObstacles.put(jsonObstacle);
+                        }
+                    }
+                        outputNotif = jsonObstacles.toString();
+                        //SEND VALUE
+                        if (Constants.connected) {
+                            byte[] bytes = outputNotif.getBytes(Charset.defaultCharset());
+                            BluetoothChat.writeMsg(bytes);
+                        }
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
         ImageButton robotButton = (ImageButton) findViewById(R.id.generateRobot);
         robotButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -822,6 +857,7 @@ public class MainActivity extends AppCompatActivity {
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                System.out.println("input");
                 obstacleFaceNumber = Integer.parseInt(parent.getItemAtPosition(position).toString());
                 // Do something with the selected item
                 System.out.println(obstacleFaceNumber);
@@ -847,10 +883,11 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 obstacleFaceCur = obstacleFaceViews.get(obstacleFaceNumber - 1);
+                System.out.println(obstacleFaceCur);
                 ConstraintLayout obstacleGroup = obstacleViews.get(obstacleFaceNumber - 1);
-
-                String facing = "error";
-
+                int obstacleNum = getObstacleNumber(obstacleGroup);
+                int[] currentColRow = map.getColRowFromXY(obstacleGroup.getX(), obstacleGroup.getY(), map.getLeft(), map.getTop());
+                obstacleFacing[obstacleNum-1] = "NA";
                 switch (view.getId()) {
                     case R.id.face_north:
                         if (obstacleFaceCur.getRotation() == 0 && obstacleFaceCur.getVisibility() == View.VISIBLE) {
@@ -858,7 +895,7 @@ public class MainActivity extends AppCompatActivity {
                         } else {
                             obstacleFaceCur.setVisibility(View.VISIBLE);
                             obstacleFaceCur.setRotation(0);
-                            facing = "N";
+                            obstacleFacing[obstacleNum-1] = "N";
                         }
                         break;
                     case R.id.face_east:
@@ -867,7 +904,7 @@ public class MainActivity extends AppCompatActivity {
                         } else {
                             obstacleFaceCur.setVisibility(View.VISIBLE);
                             obstacleFaceCur.setRotation(90);
-                            facing = "E";
+                            obstacleFacing[obstacleNum-1] = "E";
                         }
                         break;
                     case R.id.face_south:
@@ -876,7 +913,7 @@ public class MainActivity extends AppCompatActivity {
                         } else {
                             obstacleFaceCur.setVisibility(View.VISIBLE);
                             obstacleFaceCur.setRotation(180);
-                            facing = "S";
+                            obstacleFacing[obstacleNum-1] = "S";
                         }
                         break;
                     case R.id.face_west:
@@ -885,27 +922,18 @@ public class MainActivity extends AppCompatActivity {
                         } else {
                             obstacleFaceCur.setVisibility(View.VISIBLE);
                             obstacleFaceCur.setRotation(270);
-                            facing = "W";
+                            obstacleFacing[obstacleNum-1] = "W";
                         }
                         break;
                 }
 
-                int obstacleNum = getObstacleNumber(obstacleGroup);
-                int[] currentColRow = map.getColRowFromXY(obstacleGroup.getX(), obstacleGroup.getY(), map.getLeft(), map.getTop());
 
-                //FOR CHECKLIST
-                //outputNotif = String.format("Facing: %s, Col: %d, Row: %d\n", facing, currentColRow[0], currentColRow[1]);
-                outputNotif = String.format("Obstacle: %d, Facing: %s", obstacleNum, facing);
-                if (!facing.equals("error")) {
+                outputNotif = String.format("Obstacle: %d, Col: %d, Row: %d, Facing: %s\n", obstacleNum, currentColRow[0], currentColRow[1], obstacleFacing[obstacleNum-1]);
+//                outputNotif = String.format("Obstacle: %d, Facing: %s", obstacleNum, obstacleFacing.get(obstacleNum-1));
+                if (!obstacleFacing[obstacleNum-1].equals("NA")) {
                     System.out.printf(outputNotif);
                     System.out.println();
                     outputNotifView.setText(outputNotif);
-
-                    //SEND VALUE
-                    if (Constants.connected) {
-                        byte[] bytes = outputNotif.getBytes(Charset.defaultCharset());
-                        BluetoothChat.writeMsg(bytes);
-                    }
                 }
 
             }
@@ -916,10 +944,6 @@ public class MainActivity extends AppCompatActivity {
         southFace.setOnClickListener(onClickFaceListener);
         westFace.setOnClickListener(onClickFaceListener);
 
-
-        /** WHOLE Dropping segment of the obstacles on the map - Do clean up q hard to understand! lots of considerations.
-         *
-         */
         map.setOnDragListener(new View.OnDragListener() {
             @Override
             public boolean onDrag(View view, DragEvent dragEvent) {
@@ -933,6 +957,7 @@ public class MainActivity extends AppCompatActivity {
                         // Highlight the cell on the chess board where the piece is being dragged over
                         break;
                     case DragEvent.ACTION_DRAG_EXITED:
+                    case DragEvent.ACTION_DRAG_ENDED:
                         // Remove the highlight from the cell
                         break;
                     case DragEvent.ACTION_DROP:
@@ -941,7 +966,6 @@ public class MainActivity extends AppCompatActivity {
 
                         int x = (int) dragEvent.getX();
                         int y = (int) dragEvent.getY();
-
 
                         // this is the exact location - but we want to snap to grid //myImage.setX(x + map.getX() - map.getCellSize()/2); //myImage.setY(y+ map.getY() - map.getCellSize()/2);
                         // if the past location of obstacle was in the map, u remove the old one.
@@ -960,27 +984,28 @@ public class MainActivity extends AppCompatActivity {
                         int obstacleNum = getObstacleNumber(curObstacleGrp);
                         int col = newObstCoordColRow[2];
                         int row = newObstCoordColRow[3];
+
                         outputNotif = String.format("Obstacle: %d, Col: %d, Row: %d", obstacleNum, col, row);
                         System.out.printf(outputNotif);
                         System.out.println();
                         outputNotifView.setText(outputNotif);
 
-
                         //others
                         int[] newObstacleCoord = {newObstCoordColRow[0], newObstCoordColRow[1]};
-                        newObstacleCoord[0] = newObstacleCoord[0] + (int) (map.getX());  // NEW 6 feb
+                        newObstacleCoord[0] = newObstacleCoord[0] + (int) (map.getX());
                         newObstacleCoord[1] = newObstacleCoord[1] + (int) (map.getY());
 
-                        //WHEN U JUST CLICK IT ONLY - releases the popupwindow
+//                        WHEN U JUST CLICK IT ONLY - releases the popupwindow
                         if (currentObstacleCoords[obstacleNum - 1][0] == newObstacleCoord[0] && currentObstacleCoords[obstacleNum - 1][1] == newObstacleCoord[1]) {
                             spinner.setSelection(obstacleNum - 1);
                             popup.setVisibility(View.VISIBLE);
-                        } else {
-                            //SEND to RPI - if not a ®click!! - MESSAGE
-                            if (Constants.connected) {
-                                byte[] bytes = outputNotif.getBytes(Charset.defaultCharset());
-                                BluetoothChat.writeMsg(bytes);
-                            }
+//                        } else {
+//
+//                            // SEND to RPI - if not a ®click!! - MESSAGE
+//                            if (Constants.connected) {
+//                                byte[] bytes = outputNotif.getBytes(Charset.defaultCharset());
+//                                BluetoothChat.writeMsg(bytes);
+//                            }
                         }
 
                         //saving the current obstacles
@@ -993,9 +1018,6 @@ public class MainActivity extends AppCompatActivity {
 
                         map.invalidate();
 
-                        break;
-                    case DragEvent.ACTION_DRAG_ENDED:
-                        // Remove the highlight from the cell
                         break;
                     default:
                         break;
@@ -1176,7 +1198,6 @@ public class MainActivity extends AppCompatActivity {
         }
         return -1;
     }
-
 
     /**
      * HELPER FUNCTIONS TO CHECK
@@ -1422,6 +1443,7 @@ public class MainActivity extends AppCompatActivity {
     };
 
     BroadcastReceiver btConnectionReceiver = new BroadcastReceiver() {
+        @SuppressLint("MissingPermission")
         @Override
         public void onReceive(Context context, Intent intent) {
 
@@ -1522,11 +1544,11 @@ public class MainActivity extends AppCompatActivity {
 
         //CHECK FOR EXISTING CONNECTION
         if (connectedState) {
-            Log.d(" MainAcitvity:", "OnResume1");
+            Log.d(" MainActivity:", "OnResume1");
 
             //SET TEXTFIELD TO DEVICE NAME
         } else {
-            Log.d(" MainAcitvity:", "OnResume2");
+            Log.d(" MainActivity:", "OnResume2");
 
             //SET TEXTFIELD TO NOT CONNECTED
         }
