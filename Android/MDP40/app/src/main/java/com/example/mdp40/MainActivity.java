@@ -708,8 +708,8 @@ public class MainActivity extends AppCompatActivity {
                             JSONObject jsonObstacle = new JSONObject();
                             jsonObstacle.put("x", currentColRow[0]);
                             jsonObstacle.put("y", currentColRow[1]);
-                            jsonObstacle.put("id", obstacleNum);
                             jsonObstacle.put("d", obstacleFacing[i]);
+                            jsonObstacle.put("id", obstacleNum);
                             jsonObstacles.put(jsonObstacle);
                         }
                     }
