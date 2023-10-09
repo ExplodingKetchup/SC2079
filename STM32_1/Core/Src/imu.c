@@ -66,7 +66,7 @@ uint8_t imu_init(I2C_HandleTypeDef* hi2c_ptr) {
 
 	cur_bank = get_cur_bank();
 
-	osDelay(100);
+	HAL_Delay(100);
 	uint8_t who_am_i = read_one_byte(0, 0);
 	if (who_am_i != 0xEA) { 	// read WHO_AM_I register, should receive 0xEA
 		return 2;
@@ -74,30 +74,35 @@ uint8_t imu_init(I2C_HandleTypeDef* hi2c_ptr) {
 
 	// Wake up chip
 	if (!write_one_byte(0, B0_PWR_MGMT_1, ~0x40 & 0x41)) return 3;
+	HAL_Delay(50);
 
 	// Enables ODR start-time alignment when any of the following registers is written: GYRO_SMPLRT_DIV,
 	// ACCEL_SMPLRT_DIV_1, ACCEL_SMPLRT_DIV_2, I2C_MST_ODR_CONFIG.
 	if (!write_one_byte(2, B2_ODR_ALIGN_EN, 0x01)) return 4;
+	HAL_Delay(50);
 
 	// Set accel low pass filter
-	if (!write_one_byte(2, B2_ACCEL_CONFIG, (ACCEL_DLPFCFG_val << 3) | ACCEL_FCHOICE_val)) return 5;
+	//if (!write_one_byte(2, B2_ACCEL_CONFIG, (ACCEL_DLPFCFG_val << 3) | ACCEL_FCHOICE_val)) return 5;
 
 	// Set gyro low pass filter and scale
 	if (!write_one_byte(2, B2_GYRO_CONFIG_1, (((GYRO_DLPFCFG_val << 2) | GYRO_FS_SEL_val) << 1) | GYRO_FCHOICE_val)) return 6;
+	HAL_Delay(50);
 
 	// Set accel sample rate divider
-	if (ACCEL_SMPLRT_DIV_val > 0x0FFF) ACCEL_SMPLRT_DIV_val = 0x0FFF;
-	if (!write_one_byte(2, B2_ACCEL_SMPLRT_DIV_1, (uint8_t)(ACCEL_SMPLRT_DIV_val >> 8))) return 7;
-	if (!write_one_byte(2, B2_ACCEL_SMPLRT_DIV_2, (uint8_t)(ACCEL_SMPLRT_DIV_val & 0x00FF))) return 8;
+	//if (ACCEL_SMPLRT_DIV_val > 0x0FFF) ACCEL_SMPLRT_DIV_val = 0x0FFF;
+	//if (!write_one_byte(2, B2_ACCEL_SMPLRT_DIV_1, (uint8_t)(ACCEL_SMPLRT_DIV_val >> 8))) return 7;
+	//if (!write_one_byte(2, B2_ACCEL_SMPLRT_DIV_2, (uint8_t)(ACCEL_SMPLRT_DIV_val & 0x00FF))) return 8;
 
 	// Set gyro sample rate divider
 	if (!write_one_byte(2, B2_GYRO_SMPLRT_DIV, GYRO_SMPLRT_DIV_val)) return 9;
+	HAL_Delay(50);
 
 	// Caliberate accelerometer (eliminate bias)
-	accel_caliberate();
+	//accel_caliberate();
 
 	// Caliberate gyroscope (eliminate bias)
 	gyro_caliberate();
+	HAL_Delay(50);
 
 	return 0;
 }
@@ -110,7 +115,7 @@ uint8_t read_one_byte(uint8_t bank, uint8_t regAddr) {
 	uint8_t reg = regAddr;
 
 	if (HAL_I2C_Master_Transmit(hi2c1_ptr, IMU_I2C_ADDR, &reg, 1, HAL_MAX_DELAY) == HAL_OK) {
-		if (HAL_I2C_Master_Receive(hi2c1_ptr, IMU_I2C_ADDR, buf, 1, HAL_MAX_DELAY) == HAL_OK) {
+		if (HAL_I2C_Master_Receive(hi2c1_ptr, IMU_I2C_ADDR, buf, 1, I2C_MAX_DELAY) == HAL_OK) {
 			return buf[0];
 		}
 	}

@@ -90,23 +90,23 @@ void uart_ack(uint8_t id) {
 
 HAL_StatusTypeDef uart_receive(const uint8_t* buf) {
 	uint8_t id = buf[3];
-	if ((buf[0] == 0x41) && (id == ack_tx + 1)) {			// ACK from RPI is in correct order
+	/*if ((buf[0] == 0x41) && (id == ack_tx + 1)) {			// ACK from RPI is in correct order
 		if ((cpltErrPtr->id == id) && (cpltErrPtr->finished)) {	// Check if the ACK id is replying to CpltErr STM is sending
 			ack_tx = id;
 			return HAL_OK;
 		}
-	}
-	else if (id == instructionId + 1) {		// Received instruction is correct in order
+	}*/
+	if (id == instructionId + 1) {		// Received instruction is correct in order
 		if ((cpltErrPtr->id == instructionId) && (cpltErrPtr->finished)) {	// Current instruction finished
 			curInstPtr->id = id;
 			curInstPtr->type = (buf[0] >> 6) & 0x01;
 			curInstPtr->val = ((int16_t)buf[1] << 8) | buf[2];
 			instructionId++;
-			uart_ack(instructionId);
+			//uart_ack(instructionId);
 			return HAL_OK;
 		}
 	}
-	uart_ack(instructionId);
+	//uart_ack(instructionId);
 	return HAL_ERROR;
 }
 

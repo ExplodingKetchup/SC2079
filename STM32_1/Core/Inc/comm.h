@@ -89,7 +89,7 @@
 #define CPLTERR_TYPE_UNDEFINED 2
 
 #define UART_ACK_MAX_DELAY 5000
-#define UART_PACKET_SIZE 4
+#define UART_PACKET_SIZE 5
 
 /* Struct for instructions (Received) */
 typedef struct {

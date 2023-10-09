@@ -447,7 +447,7 @@ void carTurn(uint8_t mtr_dir, float turning_angle) {
 		mtr_mov_cm(10.5, 10.5);
 	}
 	mtr_stop();
-
+	osDelay(200);
 	// Start servo and motor in turn direction
 	if (((turning_angle == 90) && (mtr_dir == 1)) ||
 		((turning_angle == 270) && (mtr_dir == 2))) {
@@ -456,6 +456,7 @@ void carTurn(uint8_t mtr_dir, float turning_angle) {
 	else {
 		turnServo(RIGHT);
 	}
+	osDelay(200);
 	if (mtr_dir == 1) {
 		mtr_SetParamAndMove(motorA, DIR_FWD, 1800);
 		mtr_SetParamAndMove(motorB, DIR_FWD, 1800);

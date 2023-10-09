@@ -62,6 +62,7 @@
 
 /* Other constants */
 #define MIN_ANG_SPD 2.0f	// Min angular speed to NOT be consider as noise (+-)
+#define I2C_MAX_DELAY 5000
 
 /* Struct to store accelerometer / gyroscope measurement results (in 3 axises) */
 typedef struct {

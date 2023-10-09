@@ -187,6 +187,12 @@ int main(void)
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
   OLED_Init();
+  if (imu_init(&hi2c1) != 0) {
+	  OLED_Clear();
+		sprintf(oledbuf, "Imu err: %d", 1);
+		OLED_ShowString(10, 15, &oledbuf[0]);
+		OLED_Refresh_Gram();
+  }
   HAL_GPIO_WritePin(GPIOE, LED3_Pin, GPIO_PIN_SET);
   /* USER CODE END 2 */
 
@@ -768,20 +774,40 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart) {
 	UNUSED(huart);
 
 	//MX_USART3_UART_Init();
-	uart_receive((uint8_t*) buf);
-	//huart->RxState = HAL_UART_STATE_READY;
-	HAL_UART_Receive_IT(huart, buf, UART_PACKET_SIZE);
-
+	HAL_StatusTypeDef uart_stt = uart_receive((uint8_t*) buf);
 	OLED_Clear();
-	sprintf(oledbuf, "Id: %d", curInst.id);
+	sprintf(oledbuf, "%2x %2x %2x %2x", buf[0], buf[1], buf[2], buf[3]);
 	OLED_ShowString(10, 15, &oledbuf[0]);
 	OLED_Refresh_Gram();
-	sprintf(oledbuf, "Type: %d", curInst.type);
-	OLED_ShowString(10, 30, &oledbuf[0]);
-	OLED_Refresh_Gram();
-	sprintf(oledbuf, "Val: %d", curInst.val);
-	OLED_ShowString(10, 45, &oledbuf[0]);
-	OLED_Refresh_Gram();
+	//huart->RxState = HAL_UART_STATE_READY;
+	HAL_UART_Receive_IT(huart, (uint8_t*) buf, UART_PACKET_SIZE);
+
+	/*
+	if (uart_stt == HAL_OK) {
+		OLED_Clear();
+		sprintf(oledbuf, "Id: %d", curInst.id);
+		OLED_ShowString(10, 15, &oledbuf[0]);
+		OLED_Refresh_Gram();
+		sprintf(oledbuf, "Type: %d", curInst.type);
+		OLED_ShowString(10, 30, &oledbuf[0]);
+		OLED_Refresh_Gram();
+		sprintf(oledbuf, "Val: %d", curInst.val);
+		OLED_ShowString(10, 45, &oledbuf[0]);
+		OLED_Refresh_Gram();
+	}
+	else {
+		OLED_Clear();
+		sprintf(oledbuf, "Err: %d", buf[3]);
+		OLED_ShowString(10, 15, &oledbuf[0]);
+		OLED_Refresh_Gram();
+		sprintf(oledbuf, "CpltErr: %d", cpltErr.id);
+		OLED_ShowString(10, 30, &oledbuf[0]);
+		OLED_Refresh_Gram();
+		sprintf(oledbuf, "Fin: %d", cpltErr.finished);
+		OLED_ShowString(10, 45, &oledbuf[0]);
+		OLED_Refresh_Gram();
+	}
+	*/
 }
 
 void Delay_us(uint16_t us) {
@@ -822,7 +848,7 @@ void StartMotorServo(void *argument)
 	mtr_init(&htim8, &htim2, &htim3, &mtrA, &mtrB, &mtrAPID, &mtrBPID, &backupObj, &orientation, &ori_semaphoreHandle);
 	servoInit(&htim1);
 
-	//carTurn(2, 270);
+	//mtr_mov_cm(30, 30);
   /* Infinite loop */
   for(;;)
   {
@@ -882,7 +908,6 @@ void StartIMU(void *argument)
 {
   /* USER CODE BEGIN StartIMU */
 	uint32_t ori_lastSampleTime = 0;
-	imu_init(&hi2c1);
   /* Infinite loop */
   for(;;)
   {
@@ -934,7 +959,7 @@ void StartUART(void *argument)
 {
   /* USER CODE BEGIN StartUART */
 	comm_init(&huart3, &curInst, &cpltErr);
-	HAL_UART_Receive_IT(&huart3, buf, UART_PACKET_SIZE);
+	HAL_UART_Receive_IT(&huart3, (uint8_t*) buf, UART_PACKET_SIZE);
   /* Infinite loop */
   for(;;)
   {
@@ -947,7 +972,7 @@ void StartUART(void *argument)
 	  // Send results
 	  if ((curInst.id == cpltErr.id) && (cpltErr.finished)) {
 		  if (uart_send() == HAL_OK) {
-			  HAL_GPIO_WritePin(GPIOE, LED3_Pin, GPIO_PIN_RESET);
+			  //HAL_GPIO_WritePin(GPIOE, LED3_Pin, GPIO_PIN_RESET);
 		  }
 	  }
 	  osDelay(1000);
