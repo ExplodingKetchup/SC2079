@@ -107,7 +107,7 @@ public class BluetoothChat {
     public static void write(byte[] bytes) {
 
         String text = new String(bytes, Charset.defaultCharset());
-        Log.d(TAG, "Write: Writing to outputstream: " + text);
+        Log.d(TAG, "Write: Writing to output stream: " + text);
 
         try {
             myOutPutStream.write(bytes);

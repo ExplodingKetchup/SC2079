@@ -713,12 +713,12 @@ public class MainActivity extends AppCompatActivity {
                             jsonObstacles.put(jsonObstacle);
                         }
                     }
-                        outputNotif = jsonObstacles.toString();
-                        //SEND VALUE
-                        if (Constants.connected) {
-                            byte[] bytes = outputNotif.getBytes(Charset.defaultCharset());
-                            BluetoothChat.writeMsg(bytes);
-                        }
+                    outputNotif = jsonObstacles.toString() + "\n";
+                    byte[] bytes = outputNotif.getBytes(Charset.defaultCharset());
+                    //SEND VALUE
+                    if (bytes != null && Constants.connected) {
+                        BluetoothChat.writeMsg(bytes);
+                    }
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
@@ -1128,59 +1128,65 @@ public class MainActivity extends AppCompatActivity {
         if (!Constants.instruction.equals("null")) {
             instruction = Constants.instruction;
         }
-        String formattedInstruction = instruction.replaceAll("\\s", "");
-        List<String> instructionList = Arrays.asList(formattedInstruction.split(","));
+        if (instruction.length() > 0) {
+            String formattedInstruction = instruction.replaceAll("\\s", "");
+            List<String> instructionList = Arrays.asList(formattedInstruction.split(","));
 
-        System.out.println(formattedInstruction);
-        System.out.println(instructionList.get(0));
-        //CLEANING
-        String prefix = instructionList.get(0);
-        prefix = prefix.toUpperCase();
+            System.out.println(formattedInstruction);
+            System.out.println(instructionList.get(0));
+            //CLEANING
+            String prefix = instructionList.get(0);
+            prefix = prefix.toUpperCase();
 
-        //FOR STATUS
-        if (prefix.equals("STATUS")) {
-            // assuming max 1 comma
-            String display = "STATUS: ";
-            display = display + instructionList.get(1);
-            outputNotifView.setText(display);
-        } else if (prefix.equals("TARGET")) {
-            // need to add check?
-            int targetObst = Integer.parseInt(instructionList.get(1));
-            String targetID = instructionList.get(2);
-            TextView target = obstacleTextViews.get(targetObst - 1);
-            target.setText(targetID);
-            target.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+            //FOR STATUS
+            if (prefix.equals("STATUS")) {
+                // assuming max 1 comma
+                String display = "STATUS: ";
+                display = display + instructionList.get(1);
+                outputNotifView.setText(display);
+            } else if (prefix.equals("TARGET")) {
+                // need to add check?
+                int targetObst = Integer.parseInt(instructionList.get(1));
+                String targetID = instructionList.get(2);
+                TextView target = obstacleTextViews.get(targetObst - 1);
+                target.setText(targetID);
+                target.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
 
-        } else if (prefix.equals("ROBOT")) {
-            int col = Integer.parseInt(instructionList.get(1));
-            int row = Integer.parseInt(instructionList.get(2));
+            } else if (prefix.equals("ROBOT")) {
+                int col = Integer.parseInt(instructionList.get(1));
+                int row = Integer.parseInt(instructionList.get(2));
 
-            if (col < 1) {
-                col = Math.max(col, 1);
+                if (col < 1) {
+                    col = Math.max(col, 1);
+                } else {
+                    col = Math.min(col, map.getCol() - 2);
+                }
+                if (row < 1) {
+                    row = Math.max(row, 1);
+                } else {
+                    row = Math.min(row, map.getCol() - 2);
+                }
+                String face = instructionList.get(3);
+                robot.setVisibility(View.VISIBLE);
+
+                map.setOldRobotCoord(map.getCurCoord()[0], map.getCurCoord()[1]); // create tracks
+                int[] newCoord = new int[]{col, row};
+                map.setCurCoord(newCoord);
+
+                rotation = map.convertFacingToRotation(face);
+                map.saveFacingWithRotation(rotation);
+                trackRobot();
+                map.invalidate();
             } else {
-                col = Math.min(col, map.getCol() - 2);
+                System.out.println(instruction);
+                String errorMsg = "Random: " + instruction;
+                outputNotifView.setText(errorMsg);
+                System.out.println(errorMsg);
+                System.out.println("DOESN'T WORK");
             }
-            if (row < 1) {
-                row = Math.max(row, 1);
-            } else {
-                row = Math.min(row, map.getCol() - 2);
-            }
-            String face = instructionList.get(3);
-            robot.setVisibility(View.VISIBLE);
-
-            map.setOldRobotCoord(map.getCurCoord()[0], map.getCurCoord()[1]); // create tracks
-            int[] newCoord = new int[]{col, row};
-            map.setCurCoord(newCoord);
-
-            rotation = map.convertFacingToRotation(face);
-            map.saveFacingWithRotation(rotation);
-            trackRobot();
-            map.invalidate();
         } else {
-            System.out.println(instruction);
-            String errorMsg = "Random: " + instruction;
-            outputNotifView.setText(errorMsg);
-            System.out.println("DOESN'T WORK");
+            System.out.println("No instruction!");
+            outputNotifView.setText("No instruction!");
         }
     }
 
