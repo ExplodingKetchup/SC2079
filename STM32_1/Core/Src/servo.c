@@ -12,13 +12,13 @@ TIM_HandleTypeDef* htim1Ptr;
 
 void turnLeft(){
 	htim1Ptr->Instance->CCR4=1000;
-	osDelay(500);
 	cur_direction = LEFT;
+	osDelay(700);
 }
 void turnRight(){
 	htim1Ptr->Instance->CCR4=2200;
-	osDelay(500);
 	cur_direction = RIGHT;
+	osDelay(700);
 }
 void turnStraight(){
 	if(cur_direction == LEFT){
@@ -49,11 +49,11 @@ void servoInit(TIM_HandleTypeDef* htim){
 	HAL_TIM_PWM_Start(htim, TIM_CHANNEL_4);
 	cur_direction = 1;
 	htim1Ptr->Instance->CCR4=2200;
-	osDelay(700);
+	HAL_Delay(700);
 	htim1Ptr->Instance->CCR4=1000;
-	osDelay(700);
+	HAL_Delay(700);
 	htim1Ptr->Instance->CCR4=1548;
-	osDelay(700);
+	HAL_Delay(700);
 
 }
 

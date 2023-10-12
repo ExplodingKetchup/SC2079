@@ -1,6 +1,6 @@
 ../Core/Src/comm.c:28:6:comm_init	1
-../Core/Src/comm.c:49:19:uart_send	8
-../Core/Src/comm.c:82:6:uart_ack	1
-../Core/Src/comm.c:91:19:uart_receive	4
-../Core/Src/comm.c:113:9:getCurInstId	1
-../Core/Src/comm.c:117:9:newCpltErr	3
+../Core/Src/comm.c:49:19:uart_send	4
+../Core/Src/comm.c:83:6:uart_ack	1
+../Core/Src/comm.c:92:19:uart_receive	4
+../Core/Src/comm.c:114:9:getCurInstId	1
+../Core/Src/comm.c:118:9:newCpltErr	3

@@ -449,8 +449,7 @@ void carTurn(uint8_t mtr_dir, float turning_angle) {
 	mtr_stop();
 	osDelay(200);
 	// Start servo and motor in turn direction
-	if (((turning_angle == 90) && (mtr_dir == 1)) ||
-		((turning_angle == 270) && (mtr_dir == 2))) {
+	if (((turning_angle == 90) && (mtr_dir == 1)) || ((turning_angle == 270) && (mtr_dir == 2))) {
 		turnServo(LEFT);
 	}
 	else {
@@ -523,7 +522,7 @@ float executeInstruction(Instruction* inst, CompleteError* cpltErr) {
 	else {
 		return 0;
 	}
-	cpltErr->finished = 1;
+	//cpltErr->finished = 1;
 	if (cpltErr->type == CPLTERR_TYPE_UNDEFINED) {
 		cpltErr->type = CPLTERR_TYPE_CPLT;
 	}

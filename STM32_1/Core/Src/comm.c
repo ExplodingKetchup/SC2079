@@ -58,13 +58,14 @@ HAL_StatusTypeDef uart_send() {
 	uartbuf[2] = (uint8_t)(cpltErrPtr->pos_y & 0xFF);
 	uartbuf[3] = cpltErrPtr->id;
 	while (ack_tx < cpltErrPtr->id) {
-		while (HAL_UART_Transmit(huart3Ptr, (uint8_t*)uartbuf, 4, UART_ACK_MAX_DELAY) != HAL_OK) {
+		/*while (HAL_UART_Transmit(huart3Ptr, (uint8_t*)uartbuf, 4, UART_ACK_MAX_DELAY) != HAL_OK) {
 			osDelay(500);
-		}
+		}*/
+		HAL_UART_Transmit(huart3Ptr, (uint8_t*)uartbuf, 4, UART_ACK_MAX_DELAY);
 		// Waiting for ACK
 		// Disable ack from rpi
 		ack_tx++;
-		for (int i = 0; i < 10; i++) {
+		/*for (int i = 0; i < 10; i++) {
 			if (ack_tx < cpltErrPtr->id) {
 				osDelay(UART_ACK_MAX_DELAY / 10);
 			}
@@ -74,7 +75,7 @@ HAL_StatusTypeDef uart_send() {
 			else {
 				return HAL_ERROR;
 			}
-		}
+		}*/
 	}
 	return HAL_OK;
 }

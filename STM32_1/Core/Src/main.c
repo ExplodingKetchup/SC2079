@@ -55,6 +55,7 @@ TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim6;
 TIM_HandleTypeDef htim8;
 
+UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart3;
 
 /* Definitions for defaultTask */
@@ -78,19 +79,12 @@ const osThreadAttr_t imu_attributes = {
   .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
-/* Definitions for ultrasound */
-osThreadId_t ultrasoundHandle;
-const osThreadAttr_t ultrasound_attributes = {
-  .name = "ultrasound",
-  .stack_size = 256 * 4,
-  .priority = (osPriority_t) osPriorityHigh,
-};
 /* Definitions for uart */
 osThreadId_t uartHandle;
 const osThreadAttr_t uart_attributes = {
   .name = "uart",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 256 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
 };
 /* Definitions for ori_semaphore */
 osSemaphoreId_t ori_semaphoreHandle;
@@ -137,10 +131,10 @@ static void MX_TIM3_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_USART3_UART_Init(void);
+static void MX_USART1_UART_Init(void);
 void StartDefaultTask(void *argument);
 void StartMotorServo(void *argument);
 void StartIMU(void *argument);
-void StartUS(void *argument);
 void StartUART(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -185,15 +179,22 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM6_Init();
   MX_USART3_UART_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   OLED_Init();
-  if (imu_init(&hi2c1) != 0) {
+  uint8_t imuerr = imu_init(&hi2c1);
+  if (imuerr != 0) {
 	  OLED_Clear();
-		sprintf(oledbuf, "Imu err: %d", 1);
+		sprintf(oledbuf, "Imu err: %d", imuerr);
 		OLED_ShowString(10, 15, &oledbuf[0]);
 		OLED_Refresh_Gram();
   }
+  comm_init(&huart3, &curInst, &cpltErr);
   HAL_GPIO_WritePin(GPIOE, LED3_Pin, GPIO_PIN_SET);
+  HAL_UART_Receive_IT(&huart3, (uint8_t*) buf, UART_PACKET_SIZE);
+  mtr_init(&htim8, &htim2, &htim3, &mtrA, &mtrB, &mtrAPID, &mtrBPID, &backupObj, &orientation, &ori_semaphoreHandle);
+  servoInit(&htim1);
+  //HAL_UART_Receive_IT(&huart1, (uint8_t*) buf, UART_PACKET_SIZE);
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -228,9 +229,6 @@ int main(void)
 
   /* creation of imu */
   imuHandle = osThreadNew(StartIMU, NULL, &imu_attributes);
-
-  /* creation of ultrasound */
-  ultrasoundHandle = osThreadNew(StartUS, NULL, &ultrasound_attributes);
 
   /* creation of uart */
   uartHandle = osThreadNew(StartUART, NULL, &uart_attributes);
@@ -635,6 +633,39 @@ static void MX_TIM8_Init(void)
 }
 
 /**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
   * @brief USART3 Initialization Function
   * @param None
   * @retval None
@@ -723,7 +754,7 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
-	if (htim == &htim1) {		// Ultrasound Echo
+	/*if (htim == &htim1) {		// Ultrasound Echo
 		if (echo_upEdge > 20000) {
 			echo_upEdge = (uint16_t)HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
 		}
@@ -760,13 +791,12 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 			}
 		}
 	}
+	*/
 	if (htim == &htim2) {		// Motor A's interrupt
 		mtrAPID.count = -(int16_t)__HAL_TIM_GET_COUNTER(htim);
-		//mtrAPID.angle = (int)((mtrAPID.count/2)*360/(PULSE_PER_REV));
 	}
 	if (htim == &htim3) {		// Motor B's interrupt
 		mtrBPID.count = (int16_t)__HAL_TIM_GET_COUNTER(htim);
-		//mtrBPID.angle = (int)((mtrBPID.count/2)*360/(PULSE_PER_REV));
 	}
 }
 
@@ -780,7 +810,12 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart) {
 	OLED_ShowString(10, 15, &oledbuf[0]);
 	OLED_Refresh_Gram();
 	//huart->RxState = HAL_UART_STATE_READY;
-	HAL_UART_Receive_IT(huart, (uint8_t*) buf, UART_PACKET_SIZE);
+	buf[0] = 0;
+	buf[1] = 0;
+	buf[2] = 0;
+	buf[3] = 0;
+
+	//HAL_UART_Receive_IT(huart, (uint8_t*) buf, UART_PACKET_SIZE);
 
 	/*
 	if (uart_stt == HAL_OK) {
@@ -845,9 +880,6 @@ void StartDefaultTask(void *argument)
 void StartMotorServo(void *argument)
 {
   /* USER CODE BEGIN StartMotorServo */
-	mtr_init(&htim8, &htim2, &htim3, &mtrA, &mtrB, &mtrAPID, &mtrBPID, &backupObj, &orientation, &ori_semaphoreHandle);
-	servoInit(&htim1);
-
 	//mtr_mov_cm(30, 30);
   /* Infinite loop */
   for(;;)
@@ -858,9 +890,9 @@ void StartMotorServo(void *argument)
 			  mtr_continue();
 			  mtr_stop();
 		  }
-		  if (!cpltErr.finished) {	// If instruction did not finish, try again
+		  /*if (!cpltErr.finished) {	// If instruction did not finish, try again
 			  continue;
-		  }
+		  }*/
 		  if (dist != 0) {
 			  pos_x += dist * (float)sin((orientation / 180) * PI);
 			  pos_y += dist * (float)cos((orientation / 180) * PI);
@@ -879,6 +911,8 @@ void StartMotorServo(void *argument)
 
 		  cpltErr.pos_x = (int16_t)pos_x;
 		  cpltErr.pos_y = (int16_t)pos_y;
+
+		  cpltErr.finished = 1;
 	  }
 	  /*
 	  OLED_Clear();
@@ -917,35 +951,10 @@ void StartIMU(void *argument)
 	  OLED_ShowString(10, 45, &oledbuf[0]);
 	  OLED_Refresh_Gram();*/
 	  if (cpltErr.finished) {
-		  osDelay(1);
+		  osDelay(5);
 	  }
   }
   /* USER CODE END StartIMU */
-}
-
-/* USER CODE BEGIN Header_StartUS */
-/**
-* @brief Function implementing the ultrasound thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartUS */
-void StartUS(void *argument)
-{
-  /* USER CODE BEGIN StartUS */
-	HAL_TIM_Base_Start(&htim6);
-	HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
-  /* Infinite loop */
-  for(;;)
-  {
-	  HAL_GPIO_WritePin(US_TRIG_GPIO_Port, US_TRIG_Pin, GPIO_PIN_RESET);
-	  osDelay(50);
-	  HAL_GPIO_WritePin(US_TRIG_GPIO_Port, US_TRIG_Pin, GPIO_PIN_SET);
-	  Delay_us(10);
-	  HAL_GPIO_WritePin(US_TRIG_GPIO_Port, US_TRIG_Pin, GPIO_PIN_RESET);
-	  osDelay(50);
-  }
-  /* USER CODE END StartUS */
 }
 
 /* USER CODE BEGIN Header_StartUART */
@@ -958,24 +967,21 @@ void StartUS(void *argument)
 void StartUART(void *argument)
 {
   /* USER CODE BEGIN StartUART */
-	comm_init(&huart3, &curInst, &cpltErr);
-	HAL_UART_Receive_IT(&huart3, (uint8_t*) buf, UART_PACKET_SIZE);
   /* Infinite loop */
   for(;;)
   {
 	  // Initiate new task
 	  if ((curInst.id == cpltErr.id + 1) && (cpltErr.finished)) {	// If a new instruction has been received but has not been processed
-		  if (!newCpltErr(curInst.id)) {
-
+		  while (HAL_UART_Receive_IT(&huart3, (uint8_t*) buf, UART_PACKET_SIZE) != HAL_OK) {
+			  osDelay(10);
 		  }
+		  newCpltErr(curInst.id);
 	  }
 	  // Send results
 	  if ((curInst.id == cpltErr.id) && (cpltErr.finished)) {
-		  if (uart_send() == HAL_OK) {
-			  //HAL_GPIO_WritePin(GPIOE, LED3_Pin, GPIO_PIN_RESET);
-		  }
+		  uart_send();
 	  }
-	  osDelay(1000);
+	  osDelay(500);
   }
   /* USER CODE END StartUART */
 }
