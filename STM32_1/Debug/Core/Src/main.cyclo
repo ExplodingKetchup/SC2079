@@ -15,5 +15,5 @@
 ../Core/Src/main.c:862:6:StartDefaultTask	1
 ../Core/Src/main.c:880:6:StartMotorServo	8
 ../Core/Src/main.c:941:6:StartIMU	2
-../Core/Src/main.c:967:6:StartUART	6
-../Core/Src/main.c:993:6:Error_Handler	1
+../Core/Src/main.c:967:6:StartUART	5
+../Core/Src/main.c:998:6:Error_Handler	1

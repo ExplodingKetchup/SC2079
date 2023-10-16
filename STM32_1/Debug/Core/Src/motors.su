@@ -16,5 +16,5 @@
 ../Core/Src/motors.c:279:6:PID_Control	32	static
 ../Core/Src/motors.c:312:6:stopPID	8	static
 ../Core/Src/motors.c:326:6:turn	40	static
-../Core/Src/motors.c:409:6:carTurn	32	static
-../Core/Src/motors.c:503:7:executeInstruction	24	static
+../Core/Src/motors.c:409:6:carTurn	40	static
+../Core/Src/motors.c:518:7:executeInstruction	24	static

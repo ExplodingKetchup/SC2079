@@ -11,7 +11,7 @@ uint8_t cur_direction; // 0 as left, 1 as straight, 2 as right
 TIM_HandleTypeDef* htim1Ptr;
 
 void turnLeft(){
-	htim1Ptr->Instance->CCR4=1000;
+	htim1Ptr->Instance->CCR4=962;
 	cur_direction = LEFT;
 	osDelay(700);
 }
@@ -23,10 +23,10 @@ void turnRight(){
 void turnStraight(){
 	if(cur_direction == LEFT){
 		htim1Ptr->Instance->CCR4=1548;
-		osDelay(500);
+		osDelay(700);
 	}else if(cur_direction == RIGHT){
 		htim1Ptr->Instance->CCR4=1457;
-		osDelay(500);
+		osDelay(700);
 	}else{
 		return;
 	}

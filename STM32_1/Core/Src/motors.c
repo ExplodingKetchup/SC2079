@@ -410,8 +410,9 @@ void carTurn(uint8_t mtr_dir, float turning_angle) {
 	// Check validity of parameters
 	if ((mtr_dir < 1) || (mtr_dir > 2))
 		return;
-	if ((turning_angle != 90) && (turning_angle != 270))
+	/*if ((turning_angle != 90) && (turning_angle != 270))
 		return;
+	*/
 
 	// Calculate target orientation
 	float target_ori = (*ori) + turning_angle;
@@ -434,7 +435,7 @@ void carTurn(uint8_t mtr_dir, float turning_angle) {
 	}
 
 	// Pre-turning adjustments
-	if ((turning_angle == 90) && (mtr_dir == 1)) {
+	/*if ((turning_angle == 90) && (mtr_dir == 1)) {
 		mtr_mov_cm(5.0, 5.0);
 	}
 	else if ((turning_angle == 270) && (mtr_dir == 1)) {
@@ -448,21 +449,28 @@ void carTurn(uint8_t mtr_dir, float turning_angle) {
 	}
 	mtr_stop();
 	osDelay(200);
+	*/
+
 	// Start servo and motor in turn direction
-	if (((turning_angle == 90) && (mtr_dir == 1)) || ((turning_angle == 270) && (mtr_dir == 2))) {
+	/*if (((turning_angle == 90) && (mtr_dir == 1)) || ((turning_angle == 270) && (mtr_dir == 2))) {
 		turnServo(LEFT);
 	}
 	else {
 		turnServo(RIGHT);
-	}
+	}*/
+	turnServo(RIGHT);
 	osDelay(200);
+
+	int mtrSpeed = 0;
 	if (mtr_dir == 1) {
-		mtr_SetParamAndMove(motorA, DIR_FWD, 1800);
-		mtr_SetParamAndMove(motorB, DIR_FWD, 1800);
+		mtrSpeed = 3800;
+		mtr_SetParamAndMove(motorA, DIR_FWD, mtrSpeed);
+		mtr_SetParamAndMove(motorB, DIR_FWD, mtrSpeed);
 	}
 	else {
-		mtr_SetParamAndMove(motorA, DIR_BCK, 2000);
-		mtr_SetParamAndMove(motorB, DIR_BCK, 2000);
+		mtrSpeed = 4000;
+		mtr_SetParamAndMove(motorA, DIR_BCK, mtrSpeed);
+		mtr_SetParamAndMove(motorB, DIR_BCK, mtrSpeed);
 	}
 
 	// Polling orientation and break when target reached
@@ -477,11 +485,17 @@ void carTurn(uint8_t mtr_dir, float turning_angle) {
 				break;
 			}
 		}
+		if (mtrSpeed > 1800) {
+			mtrSpeed -= 5;
+		}
+		mtr_SetParamAndMove(motorA, DIR_FWD, mtrSpeed);
+		mtr_SetParamAndMove(motorB, DIR_FWD, mtrSpeed);
 		osDelay(2);
 	}
 	mtr_stop();
 
 	// Post-turning adjustments
+	/*
 	if ((turning_angle == 90) && (mtr_dir == 1)) {
 		mtr_mov_cm(-11.5, -11.5);
 	}
@@ -494,6 +508,7 @@ void carTurn(uint8_t mtr_dir, float turning_angle) {
 	else if ((turning_angle == 90) && (mtr_dir == 2)) {
 		mtr_mov_cm(-8.2, -8.2);
 	}
+	*/
 }
 
 /*
