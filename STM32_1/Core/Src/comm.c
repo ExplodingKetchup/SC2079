@@ -80,6 +80,15 @@ HAL_StatusTypeDef uart_send() {
 	return HAL_OK;
 }
 
+HAL_StatusTypeDef uart_send_cam(uint8_t obstacle_id) {
+	if ((obstacle_id != 1) && (obstacle_id != 2)) return HAL_ERROR;
+	uartbuf[0] = 0x43;
+	uartbuf[1] = 0x41;
+	uartbuf[2] = 0x4D;
+	uartbuf[3] = obstacle_id;
+	return HAL_UART_Transmit(huart3Ptr, (uint8_t*)uartbuf, 4, UART_ACK_MAX_DELAY);
+}
+
 void uart_ack(uint8_t id) {
 	uartbuf[0] = 0x41;
 	uartbuf[1] = 0x43;
@@ -109,6 +118,20 @@ HAL_StatusTypeDef uart_receive(const uint8_t* buf) {
 	}
 	//uart_ack(instructionId);
 	return HAL_ERROR;
+}
+
+uint8_t uart_receive_cam(const uint8_t* buf) {
+	uint8_t id = buf[3];
+	if (id == 0) {
+		return 0x80;
+	}
+	if (buf[0] == 0x00) {	// LEFT
+		return 0;
+	}
+	else if (buf[0] == 0xFF) {	// RIGHT
+		return 2;
+	}
+	return 0xFF;
 }
 
 uint8_t getCurInstId() {

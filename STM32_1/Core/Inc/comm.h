@@ -16,6 +16,8 @@
  *	Receive: 32 bits (4 bytes)
  *	----------------------------
  *
+ *	1/ Instruction
+ *
  *	RX[31:30] 	: 	Type[1:0]
  *	RX[29:24] 	: 	Reserved
  *	RX[23:8] 	: 	Val[15:0]
@@ -40,6 +42,13 @@
  *	ID of instruction receive OR Corresponding ID of Complete / Error
  *	(1 - 255, starting from 1 and increase by 1 for each instruction)
  *
+ *	2/ Camera result
+ *
+ *	RX[0]		:	0x00 if Left, 0xFF if Right
+ *	RX[1]		:	0x00
+ *	RX[2]		:	0x00
+ *	RX[3]		:	Obstacle number (either 1 or 2)
+ *
  *	Transmit:
  *	----------------------------
  *
@@ -52,6 +61,7 @@
  *
  *
  *	2/ Complete / Error: 32 bits (4 bytes)
+ *
  *	TX[31:30]	:	10 for complete, 11 for error
  *	TX[29:19]	:	POS_X[10:0]
  *	TX[18:8]	:	POS_Y[10:0]
@@ -62,6 +72,13 @@
  *
  *	POS_Y (signed int):
  *	y-coordinate of car position (in cm) (signed int)
+ *
+ * 	3/ Camera request (by byte)
+ *
+ * 	TX[0]		:	0x43	(Ascii 'C')
+ * 	TX[1]		:	0x41	(Ascii 'A')
+ * 	TX[2]		:	0x4D	(Ascii 'M')
+ * 	TX[3]		:	Obstacle number (either 1 or 2)
  *
  *
  *	Communication order for 1 instruction
@@ -112,7 +129,9 @@ typedef struct {
 
 void comm_init(UART_HandleTypeDef* uart, Instruction* curInstObjRef, CompleteError* cpltErrObjRef);
 HAL_StatusTypeDef uart_send();
+HAL_StatusTypeDef uart_send_cam(uint8_t obstacle_id);
 HAL_StatusTypeDef uart_receive(const uint8_t* uartbuf);
+uint8_t uart_receive_cam(const uint8_t* buf);
 uint8_t getCurInstId();
 uint8_t newCpltErr(uint8_t id);
 

@@ -228,8 +228,8 @@ float mtr_SOSBack() {
 }
 
 void mtr_mov_cnt(int target_A, int target_B) {
-	mtrA_init((int16_t)target_A, 1.2, 0.05, 0.0001, 1);
-	mtrB_init((int16_t)target_B, 1.2, 0.05, 0.0001, 1);
+	mtrA_init((int16_t)target_A, 2, 0.05, 0.0001, 1);
+	mtrB_init((int16_t)target_B, 2, 0.05, 0.0001, 1);
 	while ((abs(motorAPID->error) > MAX_PID_ERR) || (abs(motorBPID->error) > MAX_PID_ERR)) {
 		PID_Control(motorA, motorAPID);
 		PID_Control(motorB, motorBPID);
@@ -272,8 +272,11 @@ void mtr_mov_cnt_line(int target_A, int target_B) {
 }
 
 
-void mtr_mov_cm(float cm_A, float cm_B) {
-	mtr_mov_cnt((int)(cm_A * CNT_PER_CM), (int)(cm_B * CNT_PER_CM));
+double mtr_mov_cm(double cm) {
+	double cnt = cm * CNT_PER_CM;
+	cnt = round(cnt);
+	mtr_mov_cnt((int)cnt, (int)cnt);
+	return ((motorAPID->count + motorBPID->count) / 2) / CNT_PER_CM;
 }
 
 void PID_Control(MotorData* motor, MotorPIDData* motorPID) {
@@ -344,40 +347,40 @@ void turn(float turning_angle) {
 		if (turning_angle <= 180) {	// Turn left
 			if (mtr_dir == 1) {
 				turnServo(LEFT);
-				mtr_SetParamAndMove(motorA, DIR_FWD, 1500);
-				mtr_SetParamAndMove(motorB, DIR_FWD, 1500);
+				mtr_SetParamAndMove(motorA, DIR_FWD, 1200);
+				mtr_SetParamAndMove(motorB, DIR_FWD, 1200);
 				mtr_dir = 2;
 			}
 			else {
 				turnServo(RIGHT);
-				mtr_SetParamAndMove(motorA, DIR_BCK, 1500);
-				mtr_SetParamAndMove(motorB, DIR_BCK, 1500);
+				mtr_SetParamAndMove(motorA, DIR_BCK, 1200);
+				mtr_SetParamAndMove(motorB, DIR_BCK, 1200);
 				mtr_dir = 1;
 			}
 		}
 		else {						// Turn right
 			if (mtr_dir == 1) {
 				turnServo(RIGHT);
-				mtr_SetParamAndMove(motorA, DIR_FWD, 1500);
-				mtr_SetParamAndMove(motorB, DIR_FWD, 1500);
+				mtr_SetParamAndMove(motorA, DIR_FWD, 1200);
+				mtr_SetParamAndMove(motorB, DIR_FWD, 1200);
 				mtr_dir = 2;
 			}
 			else {
 				turnServo(LEFT);
-				mtr_SetParamAndMove(motorA, DIR_BCK, 1500);
-				mtr_SetParamAndMove(motorB, DIR_BCK, 1500);
+				mtr_SetParamAndMove(motorA, DIR_BCK, 1200);
+				mtr_SetParamAndMove(motorB, DIR_BCK, 1200);
 				mtr_dir = 1;
 			}
 		}
 
 		// Poll orientation value and break if needed
 		if (!near_0) {
-			for (int i = 0; i < 250; i++) {
+			for (int i = 0; i < 400; i++) {
 				if (abs((*ori) - target_ori) < MAX_ORI_ERR) {
 					mtr_dir = 0;
 					break;
 				}
-				osDelay(2);
+				osDelay(1);
 			}
 		}
 		else {
@@ -452,13 +455,13 @@ void carTurn(uint8_t mtr_dir, float turning_angle) {
 	*/
 
 	// Start servo and motor in turn direction
-	/*if (((turning_angle == 90) && (mtr_dir == 1)) || ((turning_angle == 270) && (mtr_dir == 2))) {
+	if (((turning_angle <= 180) && (mtr_dir == 1)) || ((turning_angle > 180) && (mtr_dir == 2))) {
 		turnServo(LEFT);
 	}
 	else {
 		turnServo(RIGHT);
-	}*/
-	turnServo(RIGHT);
+	}
+	//turnServo(RIGHT);
 	osDelay(200);
 
 	int mtrSpeed = 0;
@@ -518,7 +521,7 @@ void carTurn(uint8_t mtr_dir, float turning_angle) {
 float executeInstruction(Instruction* inst, CompleteError* cpltErr) {
 	float retval;
 	if (inst->type == INST_TYPE_GOSTRAIGHT) {
-		mtr_mov_cm((float)inst->val, (float)inst->val);
+		mtr_mov_cm((float)inst->val);
 		retval = ((float)(motorAPID->count + motorBPID->count) / 2) / CNT_PER_CM;
 	}
 	else if (inst->type == INST_TYPE_TURN) {

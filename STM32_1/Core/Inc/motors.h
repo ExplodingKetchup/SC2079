@@ -113,7 +113,7 @@ void mtr_suspend(uint8_t mode);
 void mtr_continue();
 float mtr_SOSBack();
 void mtr_mov_cnt(int target_A, int target_B);
-void mtr_mov_cm(float target_A, float target_B);
+double mtr_mov_cm(double target);
 void PID_Control(MotorData* motor, MotorPIDData* motorPID);
 void stopPID();
 void turn(float target_ori);

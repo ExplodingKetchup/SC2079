@@ -47,6 +47,9 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+ADC_HandleTypeDef hadc2;
+
 I2C_HandleTypeDef hi2c1;
 
 TIM_HandleTypeDef htim1;
@@ -99,10 +102,12 @@ const osSemaphoreAttr_t ori_semaphore_attributes = {
   .name = "ori_semaphore"
 };
 /* USER CODE BEGIN PV */
+uint8_t start = 0;
+
 float orientation = 0;
 
-float pos_x = 0;
-float pos_y = 0;
+double pos_x = 0;
+double pos_y = 0;
 
 float us_distchange_x = 0;
 float us_distchange_y = 0;
@@ -112,11 +117,16 @@ uint8_t buf[20];
 
 uint16_t echo_upEdge = 65535;
 uint16_t echo_downEdge = 65535;
-uint16_t echo;
+uint16_t echo, lastEcho1, lastEcho2;
 uint8_t us_alert = 0;
+double distToObstacle = 10000;	// Distance to nearesr obstacle detected by ultrasound (cm)
+int reqDist = 0;				// Flag: if != 0, us will actively measuring distance
+int distReady = 0;				// Set to 1 when us finished active measurement
 
 Instruction curInst;
 CompleteError cpltErr;
+uint8_t turnDir = 0xFF;
+double distToObstacle_min = 25;
 
 MotorData mtrA;
 MotorData mtrB;
@@ -139,6 +149,8 @@ static void MX_TIM1_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_ADC1_Init(void);
+static void MX_ADC2_Init(void);
 void StartDefaultTask(void *argument);
 void StartMotorServo(void *argument);
 void StartIMU(void *argument);
@@ -147,6 +159,8 @@ void StartUS(void *argument);
 
 /* USER CODE BEGIN PFP */
 void Delay_us(uint16_t us);
+void usEnableActiveMeasure();
+int getIRReading(uint8_t ir);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -188,6 +202,8 @@ int main(void)
   MX_TIM6_Init();
   MX_USART3_UART_Init();
   MX_USART1_UART_Init();
+  MX_ADC1_Init();
+  MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
   OLED_Init();
   uint8_t imuerr = imu_init(&hi2c1);
@@ -308,6 +324,110 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_11;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
+  * @brief ADC2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC2_Init(void)
+{
+
+  /* USER CODE BEGIN ADC2_Init 0 */
+
+  /* USER CODE END ADC2_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC2_Init 1 */
+
+  /* USER CODE END ADC2_Init 1 */
+
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc2.Instance = ADC2;
+  hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc2.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc2.Init.ScanConvMode = DISABLE;
+  hadc2.Init.ContinuousConvMode = ENABLE;
+  hadc2.Init.DiscontinuousConvMode = DISABLE;
+  hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc2.Init.NbrOfConversion = 1;
+  hadc2.Init.DMAContinuousRequests = DISABLE;
+  hadc2.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_12;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC2_Init 2 */
+
+  /* USER CODE END ADC2_Init 2 */
+
 }
 
 /**
@@ -724,8 +844,8 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOE_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
@@ -781,26 +901,48 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 			}
 			echo_upEdge = 65535;
 			echo_downEdge = 65535;
-			if ((echo < MIN_US_ECHO) && (!cpltErr.finished)) {	// If car is not running, don't do anything
-				if (us_alert == 0) {	// Encounter alert first time, don't do anything
-					us_alert++;
+
+			/*OLED_Clear();
+			sprintf(oledbuf, "Dist: %5.1f", echo * 0.01715f);
+			OLED_ShowString(10, 15, &oledbuf[0]);
+			OLED_Refresh_Gram();*/
+
+			// Calculate distance
+			if (reqDist > 0) {
+				if (((abs(lastEcho1 - echo) > 300) || (abs(lastEcho2 - echo) > 300)) || (abs(lastEcho1 - lastEcho2) > 300)) {	// System not stabilised yet, wait
+					lastEcho2 = lastEcho1;
+					lastEcho1 = echo;
 					return;
 				}
-				if ((curInst.type == INST_TYPE_GOSTRAIGHT) && (curInst.val > 0)) {
-					mtr_suspend(SUS_STOPPID);
-				}
-				else if (curInst.type == INST_TYPE_TURN) {
-					if (mtrA.suspend == SUS_OFF) {
-						float distchange = (float)SOSBACK_DIST_CNT / CNT_PER_CM;
-						us_distchange_x += distchange * sin((orientation / 180) * PI);
-						us_distchange_y += distchange * cos((orientation / 180) * PI);
+				if (us_alert < 5) {
+					if (distToObstacle > 9999) {
+						distToObstacle = 0;
 					}
-					mtr_suspend(SUS_BACK);
+					distToObstacle += echo * 0.01715f;
+					us_alert++;
 				}
 				else {
-					mtr_suspend(SUS_STOP);
+					distToObstacle /= 5;
+					us_alert = 0;
+					if (distToObstacle < distToObstacle_min) {
+						reqDist = -1;
+					}
+					else {
+						reqDist = 0;
+					}
+					distReady = 1;
 				}
-				us_alert = 0;
+			}
+			else if (reqDist == 0) {
+				if (!cpltErr.finished) {	// Car is running, needs passive measurement
+					if (echo * 0.01715f <= distToObstacle_min) {
+						stopPID();
+						mtrA.suspend = SUS_STOP;
+						mtrB.suspend = SUS_STOP;
+						// Activate active measurement to confirm
+						usEnableActiveMeasure();
+					}
+				}
 			}
 		}
 	}
@@ -816,7 +958,11 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart) {
 	UNUSED(huart);
 
 	//MX_USART3_UART_Init();
-	HAL_StatusTypeDef uart_stt = uart_receive((uint8_t*) buf);
+	turnDir = uart_receive_cam((uint8_t*) buf);
+	if (turnDir == 0x80) {
+		start = 1;
+		turnDir = 0xFF;
+	}
 	OLED_Clear();
 	sprintf(oledbuf, "%2x %2x %2x %2x", buf[0], buf[1], buf[2], buf[3]);
 	OLED_ShowString(10, 15, &oledbuf[0]);
@@ -827,7 +973,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart) {
 	buf[2] = 0;
 	buf[3] = 0;
 
-	//HAL_UART_Receive_IT(huart, (uint8_t*) buf, UART_PACKET_SIZE);
+	HAL_UART_Receive_IT(huart, (uint8_t*) buf, UART_PACKET_SIZE);
 
 	/*
 	if (uart_stt == HAL_OK) {
@@ -862,6 +1008,31 @@ void Delay_us(uint16_t us) {
 	while (__HAL_TIM_GET_COUNTER(&htim6) < us);
 	return;
 }
+
+void usEnableActiveMeasure() {
+	distReady = 0;
+	distToObstacle = 10000;
+	reqDist = 1;
+}
+
+int getIRReading(uint8_t ir) {
+	int retval;
+	for (int i = 0; i < 5; i++) {
+		if (ir == LEFT) {
+			HAL_ADC_Start(&hadc2);
+			HAL_ADC_PollForConversion(&hadc2, 10);
+			retval += HAL_ADC_GetValue(&hadc2);
+			HAL_ADC_Stop(&hadc2);
+		}
+		else if (ir == RIGHT) {
+			HAL_ADC_Start(&hadc1);
+			HAL_ADC_PollForConversion(&hadc1, 10);
+			retval += HAL_ADC_GetValue(&hadc1);
+			HAL_ADC_Stop(&hadc1);
+		}
+	}
+	return retval/5;
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -892,40 +1063,381 @@ void StartDefaultTask(void *argument)
 void StartMotorServo(void *argument)
 {
   /* USER CODE BEGIN StartMotorServo */
-	carTurn(1, 180);
+	uint8_t carTurnOk = 0;
+	uint8_t selectedIr = 0xFF;
+	double distPreRun = 0;
+	double distPostRun = 0;
+	double distTmp, obs2Width;
+	int ir;
+	/*for (;;) {
+		OLED_Clear();
+		sprintf(oledbuf, "L: %d", getIRReading(LEFT));
+		OLED_ShowString(10, 15, &oledbuf[0]);
+		OLED_Refresh_Gram();
+		sprintf(oledbuf, "R: %d", getIRReading(RIGHT));
+		OLED_ShowString(10, 30, &oledbuf[0]);
+		OLED_Refresh_Gram();
+		osDelay(200);
+	}*/
+	//carTurn(1, 270);
+
+	//carTurn(1, 45);
+	//carTurn(1, 315);
+	//return;
   /* Infinite loop */
   for(;;)
   {
-	  if ((cpltErr.id == curInst.id) && (!cpltErr.finished)) {	// If the current instruction is the next one to be executed
-		  float dist = executeInstruction(&curInst, &cpltErr);
-		  if ((mtrA.suspend != SUS_OFF) || (mtrB.suspend != SUS_OFF)) {
-			  mtr_continue();
-			  mtr_stop();
+	  // Step 0: Check for start condition
+	  if (!start) continue;
+
+	  // Step 1: Move towards 1st obstacle, safe distance = 30 - 35 cm from obstacle
+	  distToObstacle_min = 30;
+	  do {
+		  // Request us distance
+		  usEnableActiveMeasure();
+		  while (!distReady) osDelay(10);
+		  if (distPreRun == 0) {
+			  distPreRun = distToObstacle;
 		  }
-		  /*if (!cpltErr.finished) {	// If instruction did not finish, try again
-			  continue;
-		  }*/
-		  if (dist != 0) {
-			  pos_x += dist * (float)sin((orientation / 180) * PI);
-			  pos_y += dist * (float)cos((orientation / 180) * PI);
+		  if ((distToObstacle - distToObstacle_min > -1) && (distToObstacle - distToObstacle_min < 1)) {
+			  break;
+		  }
+		  cpltErr.finished = 0;
+		  pos_y += mtr_mov_cm(distToObstacle - distToObstacle_min);
+		  cpltErr.finished = 1;
+		  while ((mtrA.suspend) || (mtrB.suspend)) {	// Operation is interrupted by us
+			  while (!distReady) osDelay(10);
+			  reqDist = -1;
+			  mtrA.suspend = SUS_OFF;
+			  mtrB.suspend = SUS_OFF;
+			  cpltErr.finished = 0;
+			  pos_y += mtr_mov_cm(distToObstacle - distToObstacle_min);
+			  cpltErr.finished = 1;
+		  }
+		  usEnableActiveMeasure();
+		  while (!distReady) osDelay(10);
+	  } while((distToObstacle < distToObstacle_min) || (distToObstacle > distToObstacle_min + 5));
+	  distPostRun = distToObstacle;
+	  pos_y += distPreRun - distPostRun;
+
+	  // Step 2: Request camera and wait for result
+	  uart_send_cam(1);
+	  turnDir = LEFT;		// Testing only
+	  while (turnDir == 0xFF);
+
+	  // Step 3: Turn past 1st obstacle (10x10)
+	  reqDist = -1;
+	  if (turnDir == LEFT) {
+		  cpltErr.finished = 0;
+		  carTurn(1, 45);
+		  carTurn(1, 255);
+		  mtr_mov_cm(7);
+		  turn(60);
+		  cpltErr.finished = 1;
+		  pos_y += 96.5;
+	  }
+	  else if (turnDir == RIGHT) {
+		  // Not implemented yet
+		  cpltErr.finished = 0;
+		  carTurn(1, 315);
+		  carTurn(1, 105);
+		  mtr_mov_cm(7);
+		  turn(300);
+		  cpltErr.finished = 1;
+		  pos_y += 104.3;
+	  }
+
+	  // Step 4: Move towards 2nd obstacle, safe distance = 40 - 45 cm from obstacle (if carTurnOk)
+	  // 25 - 30 cm from obstacle (if not carTurnOk)
+	  usEnableActiveMeasure();
+	  while (!distReady) osDelay(10);
+	  distPreRun = distToObstacle;
+	  if (distToObstacle <= 35) {
+		  carTurnOk = 0;
+		  distToObstacle_min = 16;
+	  }
+	  else {
+		  carTurnOk = 1;
+		  distToObstacle_min = 45;
+	  }
+
+	  do {
+		  usEnableActiveMeasure();
+		  while (!distReady) osDelay(10);
+		  if ((distToObstacle - distToObstacle_min > -1) && (distToObstacle - distToObstacle_min < 1)) {
+			  break;
+		  }
+		  cpltErr.finished = 0;
+		  pos_y += mtr_mov_cm(distToObstacle - distToObstacle_min);
+		  cpltErr.finished = 1;
+		  while ((mtrA.suspend) || (mtrB.suspend)) {	// Operation is interrupted by us
+			  while (!distReady) osDelay(10);
+			  reqDist = -1;
+			  mtrA.suspend = SUS_OFF;
+			  mtrB.suspend = SUS_OFF;
+			  cpltErr.finished = 0;
+			  pos_y += mtr_mov_cm(distToObstacle - distToObstacle_min);
+			  cpltErr.finished = 1;
+		  }
+		  usEnableActiveMeasure();
+		  while (!distReady) osDelay(10);
+	  } while((distToObstacle < distToObstacle_min) || (distToObstacle > distToObstacle_min + 5));
+	  distPostRun = distToObstacle;
+	  pos_y += distPreRun - distPostRun;
+
+	  // Step 5: Request camera and wait for result
+	  turnDir = 0xFF;
+	  uart_send_cam(2);
+	  turnDir = RIGHT;		// Testing only
+	  while (turnDir == 0xFF);
+
+	  // Step 6: Go around 2nd obstacle
+	  reqDist = -1;
+	  if (turnDir == LEFT) {
+		  cpltErr.finished = 0;
+		  if (carTurnOk) {
+			  carTurn(1, 90);
+			  pos_x += -45;
+			  pos_y += 39.5;
 		  }
 		  else {
-			  if (us_distchange_x != 0) {		// When the command is turn and there's US course correction
-				  pos_x += us_distchange_x;
-			  }
-			  if (us_distchange_y != 0) {
-				  pos_y += us_distchange_y;
-			  }
+			  turn(90);
+			  pos_x += -10.3;
 		  }
-		  // Reset us_distchange after each instruction run
-		  us_distchange_x = 0;
-		  us_distchange_y = 0;
+		  cpltErr.finished = 1;
+		  selectedIr = RIGHT;
+	  }
+	  else if (turnDir == RIGHT) {
+		  cpltErr.finished = 0;
+		  if (carTurnOk) {
+			  carTurn(1, 270);
+			  pos_x += 43.25;
+			  pos_y += 30.75;
+		  }
+		  else {
+			  turn(270);
+			  pos_x += 15.7;
+		  }
+		  cpltErr.finished = 1;
+		  selectedIr = LEFT;
+	  }
 
-		  cpltErr.pos_x = (int16_t)pos_x;
-		  cpltErr.pos_y = (int16_t)pos_y;
+	  // Go to edge of 2nd obstacle
+	  ir = getIRReading(selectedIr);
+	  mtrA_init(0xFFFF, 0, 0, 0, 1);
+	  mtrB_init(0xFFFF, 0, 0, 0, 1);
+	  if (ir > 800) {
+		  while (ir > 800) {
+			  mtr_SetParamAndMove(&mtrA, DIR_FWD, 3000);
+			  mtr_SetParamAndMove(&mtrB, DIR_FWD, 3000);
+			  osDelay(10);
+			  ir = getIRReading(selectedIr);
+		  }
+		  mtr_stop();
+		  distTmp = ((double)((mtrAPID.count + mtrBPID.count) / 2) / CNT_PER_CM);
+		  //mtr_mov_cm(-5);
+	  }
+	  else if (ir <= 500) {
+		  while (ir <= 500) {
+			  mtr_SetParamAndMove(&mtrA, DIR_BCK, 3000);
+			  mtr_SetParamAndMove(&mtrB, DIR_BCK, 3000);
+			  osDelay(10);
+			  ir = getIRReading(selectedIr);
+		  }
+		  mtr_stop();
+		  distTmp = ((double)((mtrAPID.count + mtrBPID.count) / 2) / CNT_PER_CM);
+		  //mtr_mov_cm(-5);
+	  }
+	  if (turnDir == LEFT) {
+		  pos_x -= (distTmp - 10);
+	  }
+	  else if (turnDir == RIGHT) {
+		  pos_x += (distTmp + 10);
+	  }
 
+	  if (turnDir == LEFT) {
+		  cpltErr.finished = 0;
+		  carTurn(1, 270);
+		  carTurn(1, 270);
+		  cpltErr.finished = 1;
+		  pos_x += 12.5;
+		  pos_y += 74;
+	  }
+	  else if (turnDir == RIGHT) {
+		  cpltErr.finished = 0;
+		  carTurn(1, 90);
+		  carTurn(1, 90);
+		  cpltErr.finished = 1;
+		  pos_x += -5.5;
+		  pos_y += 84.5;
+	  }
+
+	  // Back to start of 2nd obstacle
+	  ir = getIRReading(selectedIr);
+	  do {
+		  mtr_SetParamAndMove(&mtrA, DIR_BCK, 3000);
+		  mtr_SetParamAndMove(&mtrB, DIR_BCK, 3000);
+		  osDelay(10);
+		  ir = getIRReading(selectedIr);
+	  } while(ir > 800);
+	  mtr_stop();
+
+	  // Fwd to end of 2nd obstacle
+	  ir = getIRReading(selectedIr);
+	  mtrA_init(0xFFFF, 0, 0, 0, 1);
+	  mtrB_init(0xFFFF, 0, 0, 0, 1);
+	  mtr_SetParamAndMove(&mtrA, DIR_FWD, 3000);
+	  mtr_SetParamAndMove(&mtrB, DIR_FWD, 3000);
+	  osDelay(500);
+	  while(ir > 800) {
+		  osDelay(10);
+		  ir = getIRReading(selectedIr);
+	  }
+	  mtr_stop();
+	  obs2Width = ((double)((mtrAPID.count + mtrBPID.count) / 2) / CNT_PER_CM);
+	  //mtr_mov_cm(-10);
+
+	  if (turnDir == LEFT) {
+		  cpltErr.finished = 0;
+		  carTurn(1, 270);
 		  cpltErr.finished = 1;
 	  }
+	  else if (turnDir == RIGHT) {
+		  cpltErr.finished = 0;
+		  carTurn(1, 90);
+		  cpltErr.finished = 1;
+	  }
+
+	  // Step 7: Return home
+	  mtr_SetParamAndMove(&mtrA, DIR_FWD, 3000);
+	  mtr_SetParamAndMove(&mtrB, DIR_FWD, 3000);
+	  osDelay(700);
+	  if (obs2Width > 65) {
+		  mtr_stop();
+		  if (turnDir == LEFT) {
+			  carTurn(1, 315);
+			  carTurn(1, 45);
+		  }
+		  else if (turnDir == RIGHT) {
+			  carTurn(1, 45);
+			  carTurn(1, 315);
+		  }
+	  }
+	  mtr_SetParamAndMove(&mtrA, DIR_FWD, 3000);
+	  mtr_SetParamAndMove(&mtrB, DIR_FWD, 3000);
+	  while (ir <= 500) {
+		  osDelay(10);
+		  ir = getIRReading(selectedIr);
+	  }
+	  while (ir > 500) {
+		  osDelay(10);
+		  ir = getIRReading(selectedIr);
+	  }
+	  mtr_stop();
+
+	  if (turnDir == LEFT) {
+		  cpltErr.finished = 0;
+		  carTurn(1, 270);
+		  cpltErr.finished = 1;
+	  }
+	  else if (turnDir == RIGHT) {
+		  cpltErr.finished = 0;
+		  carTurn(1, 90);
+		  cpltErr.finished = 1;
+	  }
+
+	  // Move horizontally towards obs 1
+	  mtr_SetParamAndMove(&mtrA, DIR_BCK, 3000);
+	  mtr_SetParamAndMove(&mtrB, DIR_BCK, 3000);
+	  mtrA_init(0xFFFF, 0, 0, 0, 1);
+	  mtrB_init(0xFFFF, 0, 0, 0, 1);
+	  while ((mtrA.count + mtrB.count) / 2 < 2200) {
+		  ir = getIRReading(selectedIr);
+		  if (ir < 700) {
+			  osDelay(10);
+		  }
+		  else {
+			  break;
+		  }
+	  }
+	  mtr_SetParamAndMove(&mtrA, DIR_FWD, 3000);
+	  mtr_SetParamAndMove(&mtrB, DIR_FWD, 3000);
+	  while (ir < 700) {
+		  ir = getIRReading(selectedIr);
+		  osDelay(10);
+	  }
+
+	  // Turn towards carpark
+	  mtr_mov_cm(-35);
+	  carTurn(1, 270);
+
+	  // Go into carpark
+	  distToObstacle_min = 10;
+	  do {
+		  // Request us distance
+		  usEnableActiveMeasure();
+		  while (!distReady) osDelay(10);
+		  if (distPreRun == 0) {
+			  distPreRun = distToObstacle;
+		  }
+		  if ((distToObstacle - distToObstacle_min > -1) && (distToObstacle - distToObstacle_min < 1)) {
+			  break;
+		  }
+		  cpltErr.finished = 0;
+		  pos_y += mtr_mov_cm(distToObstacle - distToObstacle_min);
+		  cpltErr.finished = 1;
+		  while ((mtrA.suspend) || (mtrB.suspend)) {	// Operation is interrupted by us
+			  while (!distReady) osDelay(10);
+			  reqDist = -1;
+			  mtrA.suspend = SUS_OFF;
+			  mtrB.suspend = SUS_OFF;
+			  cpltErr.finished = 0;
+			  pos_y += mtr_mov_cm(distToObstacle - distToObstacle_min);
+			  cpltErr.finished = 1;
+		  }
+		  usEnableActiveMeasure();
+		  while (!distReady) osDelay(10);
+	  } while((distToObstacle < distToObstacle_min) || (distToObstacle > distToObstacle_min + 5));
+
+
+	  OLED_Clear();
+	  sprintf(oledbuf, "x: %5.1f", pos_x);
+	  OLED_ShowString(10, 15, &oledbuf[0]);
+	  OLED_Refresh_Gram();
+
+	  sprintf(oledbuf, "y: %5.1f", pos_y);
+	  OLED_ShowString(10, 30, &oledbuf[0]);
+	  OLED_Refresh_Gram();
+
+
+	  break;
+	  /*
+	  float dist = executeInstruction(&curInst, &cpltErr);
+	  if ((mtrA.suspend != SUS_OFF) || (mtrB.suspend != SUS_OFF)) {
+		  mtr_continue();
+		  mtr_stop();
+	  }
+	  if (dist != 0) {
+		  pos_x += dist * (float)sin((orientation / 180) * PI);
+		  pos_y += dist * (float)cos((orientation / 180) * PI);
+	  }
+	  else {
+		  if (us_distchange_x != 0) {		// When the command is turn and there's US course correction
+			  pos_x += us_distchange_x;
+		  }
+		  if (us_distchange_y != 0) {
+			  pos_y += us_distchange_y;
+		  }
+	  }
+	  // Reset us_distchange after each instruction run
+	  us_distchange_x = 0;
+	  us_distchange_y = 0;
+
+	  cpltErr.pos_x = (int16_t)pos_x;
+	  cpltErr.pos_y = (int16_t)pos_y;
+
+	  cpltErr.finished = 1;
+	  */
 	  /*
 	  OLED_Clear();
 	  sprintf(oledbuf, "X = %5.1f", pos_x);
@@ -938,7 +1450,7 @@ void StartMotorServo(void *argument)
 	  OLED_ShowString(10, 45, &oledbuf[0]);
 	  OLED_Refresh_Gram();
 	  */
-	  osDelay(500);		// Make sure to give time for UART task to transmit instructions
+	  //osDelay(500);		// Make sure to give time for UART task to transmit instructions
   }
   /* USER CODE END StartMotorServo */
 }
@@ -962,9 +1474,9 @@ void StartIMU(void *argument)
 	  sprintf(oledbuf, "Ori = %5.1f", orientation);
 	  OLED_ShowString(10, 45, &oledbuf[0]);
 	  OLED_Refresh_Gram();*/
-	  if (cpltErr.finished) {
+	  /*if (cpltErr.finished) {
 		  osDelay(5);
-	  }
+	  }*/
   }
   /* USER CODE END StartIMU */
 }
@@ -982,7 +1494,7 @@ void StartUART(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  if (!cpltErr.finished) {		// If a task is running, put this task to sleep
+	  /*if (!cpltErr.finished) {		// If a task is running, put this task to sleep
 		  osDelay(500);
 	  }
 	  else {
@@ -999,6 +1511,8 @@ void StartUART(void *argument)
 		  }
 		  osDelay(100);
 	  }
+	  */
+	  osDelay(10000);
   }
   /* USER CODE END StartUART */
 }

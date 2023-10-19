@@ -12,9 +12,9 @@
 ../Core/Src/motors.c:222:7:mtr_SOSBack	8	static
 ../Core/Src/motors.c:230:6:mtr_mov_cnt	16	static
 ../Core/Src/motors.c:242:6:mtr_mov_cnt_line	16	static
-../Core/Src/motors.c:275:6:mtr_mov_cm	16	static
-../Core/Src/motors.c:279:6:PID_Control	32	static
-../Core/Src/motors.c:312:6:stopPID	8	static
-../Core/Src/motors.c:326:6:turn	40	static
-../Core/Src/motors.c:409:6:carTurn	40	static
-../Core/Src/motors.c:518:7:executeInstruction	24	static
+../Core/Src/motors.c:275:8:mtr_mov_cm	32	static
+../Core/Src/motors.c:282:6:PID_Control	32	static
+../Core/Src/motors.c:315:6:stopPID	8	static
+../Core/Src/motors.c:329:6:turn	40	static
+../Core/Src/motors.c:412:6:carTurn	40	static
+../Core/Src/motors.c:521:7:executeInstruction	24	static

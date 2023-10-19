@@ -1,6 +1,8 @@
 ../Core/Src/comm.c:28:6:comm_init	1
 ../Core/Src/comm.c:49:19:uart_send	4
-../Core/Src/comm.c:83:6:uart_ack	1
-../Core/Src/comm.c:92:19:uart_receive	4
-../Core/Src/comm.c:114:9:getCurInstId	1
-../Core/Src/comm.c:118:9:newCpltErr	3
+../Core/Src/comm.c:83:19:uart_send_cam	3
+../Core/Src/comm.c:92:6:uart_ack	1
+../Core/Src/comm.c:101:19:uart_receive	4
+../Core/Src/comm.c:123:9:uart_receive_cam	3
+../Core/Src/comm.c:134:9:getCurInstId	1
+../Core/Src/comm.c:138:9:newCpltErr	3

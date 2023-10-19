@@ -84,6 +84,8 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 #define MIN_US_ECHO 600
+#define MIN_DIST_TO_OBSTACLE_1 25
+#define MIN_DIST_TO_OBSTACLE_2 27
 #define PI 3.14159265359f
 /* USER CODE END Private defines */
 
