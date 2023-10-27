@@ -4,5 +4,5 @@
 ../Core/Src/comm.c:92:6:uart_ack	16	static
 ../Core/Src/comm.c:101:19:uart_receive	24	static
 ../Core/Src/comm.c:123:9:uart_receive_cam	24	static
-../Core/Src/comm.c:134:9:getCurInstId	4	static
-../Core/Src/comm.c:138:9:newCpltErr	16	static
+../Core/Src/comm.c:137:9:getCurInstId	4	static
+../Core/Src/comm.c:141:9:newCpltErr	16	static

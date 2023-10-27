@@ -41,7 +41,7 @@
 #define PWMB_TIM_CH TIM_CHANNEL_2
 
 /* Limits */
-#define MAX_SPEED 7199		// = TIM8.ARR
+#define MAX_SPEED 6000		// = TIM8.ARR - 1200
 #define MIN_SPEED 1200		// Min PWM val for the car to move
 #define MAX_PID_ERR 50
 #define MAX_ORI_ERR 1.5f

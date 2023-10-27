@@ -347,28 +347,28 @@ void turn(float turning_angle) {
 		if (turning_angle <= 180) {	// Turn left
 			if (mtr_dir == 1) {
 				turnServo(LEFT);
-				mtr_SetParamAndMove(motorA, DIR_FWD, 1200);
-				mtr_SetParamAndMove(motorB, DIR_FWD, 1200);
+				mtr_SetParamAndMove(motorA, DIR_FWD, 1800);
+				mtr_SetParamAndMove(motorB, DIR_FWD, 1800);
 				mtr_dir = 2;
 			}
 			else {
 				turnServo(RIGHT);
-				mtr_SetParamAndMove(motorA, DIR_BCK, 1200);
-				mtr_SetParamAndMove(motorB, DIR_BCK, 1200);
+				mtr_SetParamAndMove(motorA, DIR_BCK, 1800);
+				mtr_SetParamAndMove(motorB, DIR_BCK, 1800);
 				mtr_dir = 1;
 			}
 		}
 		else {						// Turn right
 			if (mtr_dir == 1) {
 				turnServo(RIGHT);
-				mtr_SetParamAndMove(motorA, DIR_FWD, 1200);
-				mtr_SetParamAndMove(motorB, DIR_FWD, 1200);
+				mtr_SetParamAndMove(motorA, DIR_FWD, 1800);
+				mtr_SetParamAndMove(motorB, DIR_FWD, 1800);
 				mtr_dir = 2;
 			}
 			else {
 				turnServo(LEFT);
-				mtr_SetParamAndMove(motorA, DIR_BCK, 1200);
-				mtr_SetParamAndMove(motorB, DIR_BCK, 1200);
+				mtr_SetParamAndMove(motorA, DIR_BCK, 1800);
+				mtr_SetParamAndMove(motorB, DIR_BCK, 1800);
 				mtr_dir = 1;
 			}
 		}
@@ -410,17 +410,11 @@ void turn(float turning_angle) {
  * turning_angle only accept 90 (left) or 270 (right)
  */
 void carTurn(uint8_t mtr_dir, float turning_angle) {
-	// Check validity of parameters
-	if ((mtr_dir < 1) || (mtr_dir > 2))
-		return;
-	/*if ((turning_angle != 90) && (turning_angle != 270))
-		return;
-	*/
-
 	// Calculate target orientation
 	float target_ori = (*ori) + turning_angle;
 	while (target_ori >= 360) target_ori -= 360;
 	while (target_ori < 0) target_ori += 360;
+	if (mtr_dir == 3) target_ori = 180;
 
 	// Adjustments for near 0 degree target orientation
 	uint8_t near_0 = 0;
@@ -455,18 +449,31 @@ void carTurn(uint8_t mtr_dir, float turning_angle) {
 	*/
 
 	// Start servo and motor in turn direction
-	if (((turning_angle <= 180) && (mtr_dir == 1)) || ((turning_angle > 180) && (mtr_dir == 2))) {
+	double abs_turning_angle;
+	if (mtr_dir == 3) {
+		if (turning_angle <= 180) {
+			turnServo(LEFT);
+		}
+		else {
+			turnServo(RIGHT);
+		}
+		abs_turning_angle = 90;
+	}
+	else if (((turning_angle <= 180) && (mtr_dir == 1)) || ((turning_angle > 180) && (mtr_dir == 2))) {
 		turnServo(LEFT);
+		abs_turning_angle = turning_angle;
 	}
 	else {
 		turnServo(RIGHT);
+		abs_turning_angle = 360 - turning_angle;
 	}
 	//turnServo(RIGHT);
 	osDelay(200);
 
 	int mtrSpeed = 0;
-	if (mtr_dir == 1) {
-		mtrSpeed = 3800;
+	if ((mtr_dir == 1) || (mtr_dir == 3)) {
+		mtrSpeed = (int)abs_turning_angle * 35;
+		if (mtrSpeed < 2500) mtrSpeed = 2500;
 		mtr_SetParamAndMove(motorA, DIR_FWD, mtrSpeed);
 		mtr_SetParamAndMove(motorB, DIR_FWD, mtrSpeed);
 	}
@@ -489,11 +496,11 @@ void carTurn(uint8_t mtr_dir, float turning_angle) {
 			}
 		}
 		if (mtrSpeed > 1800) {
-			mtrSpeed -= 5;
+			mtrSpeed -= 2;
 		}
 		mtr_SetParamAndMove(motorA, DIR_FWD, mtrSpeed);
 		mtr_SetParamAndMove(motorB, DIR_FWD, mtrSpeed);
-		osDelay(2);
+		osDelay(1);
 	}
 	mtr_stop();
 

@@ -24,6 +24,7 @@
 /* USER CODE BEGIN Includes */
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "oled.h"
 #include "motors.h"
 #include "imu.h"
@@ -82,18 +83,11 @@ const osThreadAttr_t imu_attributes = {
   .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
-/* Definitions for uart */
-osThreadId_t uartHandle;
-const osThreadAttr_t uart_attributes = {
-  .name = "uart",
-  .stack_size = 256 * 4,
-  .priority = (osPriority_t) osPriorityHigh,
-};
 /* Definitions for ultrasound */
 osThreadId_t ultrasoundHandle;
 const osThreadAttr_t ultrasound_attributes = {
   .name = "ultrasound",
-  .stack_size = 128 * 4,
+  .stack_size = 256 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
 /* Definitions for ori_semaphore */
@@ -117,8 +111,9 @@ uint8_t buf[20];
 
 uint16_t echo_upEdge = 65535;
 uint16_t echo_downEdge = 65535;
-uint16_t echo, lastEcho1, lastEcho2;
+int32_t echo, lastEcho1, lastEcho2;
 uint8_t us_alert = 0;
+int32_t echoToObstacle;
 double distToObstacle = 10000;	// Distance to nearesr obstacle detected by ultrasound (cm)
 int reqDist = 0;				// Flag: if != 0, us will actively measuring distance
 int distReady = 0;				// Set to 1 when us finished active measurement
@@ -154,7 +149,6 @@ static void MX_ADC2_Init(void);
 void StartDefaultTask(void *argument);
 void StartMotorServo(void *argument);
 void StartIMU(void *argument);
-void StartUART(void *argument);
 void StartUS(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -206,18 +200,25 @@ int main(void)
   MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
   OLED_Init();
-  uint8_t imuerr = imu_init(&hi2c1);
-  if (imuerr != 0) {
-	  OLED_Clear();
-		sprintf(oledbuf, "Imu err: %d", imuerr);
-		OLED_ShowString(10, 15, &oledbuf[0]);
-		OLED_Refresh_Gram();
-  }
   HAL_TIM_Base_Start(&htim6);
   HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
   comm_init(&huart3, &curInst, &cpltErr);
   HAL_GPIO_WritePin(GPIOE, LED3_Pin, GPIO_PIN_SET);
-  HAL_UART_Receive_IT(&huart3, (uint8_t*) buf, UART_PACKET_SIZE);
+  while (HAL_UART_Receive_IT(&huart3, (uint8_t*) buf, UART_PACKET_SIZE) != HAL_OK){
+	  HAL_Delay(100);
+	  OLED_Clear();
+	  		sprintf(oledbuf, "Uart err: %d", 1);
+	  		OLED_ShowString(10, 15, &oledbuf[0]);
+	  		OLED_Refresh_Gram();
+  }
+  OLED_Clear();
+  uint8_t imuerr = imu_init(&hi2c1);
+	if (imuerr != 0) {
+	  OLED_Clear();
+		sprintf(oledbuf, "Imu err: %d", imuerr);
+		OLED_ShowString(10, 15, &oledbuf[0]);
+		OLED_Refresh_Gram();
+	}
   mtr_init(&htim8, &htim2, &htim3, &mtrA, &mtrB, &mtrAPID, &mtrBPID, &backupObj, &orientation, &ori_semaphoreHandle);
   servoInit(&htim1);
   //HAL_UART_Receive_IT(&huart1, (uint8_t*) buf, UART_PACKET_SIZE);
@@ -255,9 +256,6 @@ int main(void)
 
   /* creation of imu */
   imuHandle = osThreadNew(StartIMU, NULL, &imu_attributes);
-
-  /* creation of uart */
-  uartHandle = osThreadNew(StartUART, NULL, &uart_attributes);
 
   /* creation of ultrasound */
   ultrasoundHandle = osThreadNew(StartUS, NULL, &ultrasound_attributes);
@@ -915,15 +913,14 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 					return;
 				}
 				if (us_alert < 5) {
-					if (distToObstacle > 9999) {
-						distToObstacle = 0;
-					}
-					distToObstacle += echo * 0.01715f;
+					echoToObstacle += echo;
 					us_alert++;
 				}
 				else {
-					distToObstacle /= 5;
-					us_alert = 0;
+					echoToObstacle /= 5;
+					distToObstacle = (double)echoToObstacle * 0.01715f;
+					lastEcho1 = 65535;
+					lastEcho2 = 65535;
 					if (distToObstacle < distToObstacle_min) {
 						reqDist = -1;
 					}
@@ -1011,12 +1008,14 @@ void Delay_us(uint16_t us) {
 
 void usEnableActiveMeasure() {
 	distReady = 0;
-	distToObstacle = 10000;
+	echoToObstacle = 0;
+	distToObstacle = 0;
+	us_alert = 0;
 	reqDist = 1;
 }
 
 int getIRReading(uint8_t ir) {
-	int retval;
+	int retval = 0;
 	for (int i = 0; i < 5; i++) {
 		if (ir == LEFT) {
 			HAL_ADC_Start(&hadc2);
@@ -1085,20 +1084,18 @@ void StartMotorServo(void *argument)
 	//carTurn(1, 315);
 	//return;
   /* Infinite loop */
+	//start = 1;
   for(;;)
   {
 	  // Step 0: Check for start condition
 	  if (!start) continue;
 
 	  // Step 1: Move towards 1st obstacle, safe distance = 30 - 35 cm from obstacle
-	  distToObstacle_min = 30;
+	  distToObstacle_min = 25;
 	  do {
 		  // Request us distance
 		  usEnableActiveMeasure();
 		  while (!distReady) osDelay(10);
-		  if (distPreRun == 0) {
-			  distPreRun = distToObstacle;
-		  }
 		  if ((distToObstacle - distToObstacle_min > -1) && (distToObstacle - distToObstacle_min < 1)) {
 			  break;
 		  }
@@ -1116,43 +1113,42 @@ void StartMotorServo(void *argument)
 		  }
 		  usEnableActiveMeasure();
 		  while (!distReady) osDelay(10);
-	  } while((distToObstacle < distToObstacle_min) || (distToObstacle > distToObstacle_min + 5));
-	  distPostRun = distToObstacle;
-	  pos_y += distPreRun - distPostRun;
+		  if (distToObstacle > 50) break;
+	  } while((distToObstacle < distToObstacle_min) || (distToObstacle > distToObstacle_min + 3));
 
 	  // Step 2: Request camera and wait for result
 	  uart_send_cam(1);
-	  turnDir = LEFT;		// Testing only
+	  //turnDir = LEFT;		// Testing only
 	  while (turnDir == 0xFF);
 
 	  // Step 3: Turn past 1st obstacle (10x10)
 	  reqDist = -1;
 	  if (turnDir == LEFT) {
 		  cpltErr.finished = 0;
-		  carTurn(1, 45);
-		  carTurn(1, 255);
-		  mtr_mov_cm(7);
-		  turn(60);
+		  carTurn(1, 50);
+		  carTurn(1, 250);
+		  mtr_mov_cm(-8);
+		  carTurn(1, 360 - orientation);
 		  cpltErr.finished = 1;
-		  pos_y += 96.5;
 	  }
 	  else if (turnDir == RIGHT) {
-		  // Not implemented yet
 		  cpltErr.finished = 0;
-		  carTurn(1, 315);
-		  carTurn(1, 105);
-		  mtr_mov_cm(7);
-		  turn(300);
+		  carTurn(1, 310);
+		  carTurn(1, 110);
+		  mtr_mov_cm(-10);
+		  carTurn(1, 360 - orientation);
 		  cpltErr.finished = 1;
-		  pos_y += 104.3;
 	  }
 
 	  // Step 4: Move towards 2nd obstacle, safe distance = 40 - 45 cm from obstacle (if carTurnOk)
 	  // 25 - 30 cm from obstacle (if not carTurnOk)
 	  usEnableActiveMeasure();
 	  while (!distReady) osDelay(10);
-	  distPreRun = distToObstacle;
-	  if (distToObstacle <= 35) {
+	  if (distToObstacle > 150) {
+		  distToObstacle = (double)echo * 0.01715f;
+	  }
+	  //if (distToObstacle >= 150) mtr_mov_cm(-5);
+	  if (distToObstacle <= 20) {
 		  carTurnOk = 0;
 		  distToObstacle_min = 16;
 	  }
@@ -1160,10 +1156,24 @@ void StartMotorServo(void *argument)
 		  carTurnOk = 1;
 		  distToObstacle_min = 45;
 	  }
+	  if (distToObstacle > 150) {
+		  mtr_mov_cm(-7);
+		  osDelay(500);
+		  reqDist = 0;
+		  cpltErr.finished = 0;
+		  mtr_SetParamAndMove(&mtrA, DIR_FWD, 2000);
+		  mtr_SetParamAndMove(&mtrB, DIR_FWD, 2000);
+		  cpltErr.finished = 1;
+		  while(!mtrA.suspend) osDelay(10);
+		  while (!distReady) osDelay(10);
+		  if (distToObstacle > 150) {
+			  distToObstacle = (double)echo * 0.01715f;
+		  }
+		  mtrA.suspend = SUS_OFF;
+		  mtrB.suspend = SUS_OFF;
+	  }
 
 	  do {
-		  usEnableActiveMeasure();
-		  while (!distReady) osDelay(10);
 		  if ((distToObstacle - distToObstacle_min > -1) && (distToObstacle - distToObstacle_min < 1)) {
 			  break;
 		  }
@@ -1181,15 +1191,18 @@ void StartMotorServo(void *argument)
 		  }
 		  usEnableActiveMeasure();
 		  while (!distReady) osDelay(10);
+		  if (distToObstacle > 150) {
+			  distToObstacle = (double)echo * 0.01715f;
+		  }
 	  } while((distToObstacle < distToObstacle_min) || (distToObstacle > distToObstacle_min + 5));
-	  distPostRun = distToObstacle;
-	  pos_y += distPreRun - distPostRun;
 
 	  // Step 5: Request camera and wait for result
+	  if (!carTurnOk) mtr_mov_cm(-7);
 	  turnDir = 0xFF;
 	  uart_send_cam(2);
-	  turnDir = RIGHT;		// Testing only
+	  //turnDir = RIGHT;		// Testing only
 	  while (turnDir == 0xFF);
+	  if (!carTurnOk) mtr_mov_cm(7);
 
 	  // Step 6: Go around 2nd obstacle
 	  reqDist = -1;
@@ -1197,79 +1210,76 @@ void StartMotorServo(void *argument)
 		  cpltErr.finished = 0;
 		  if (carTurnOk) {
 			  carTurn(1, 90);
-			  pos_x += -45;
-			  pos_y += 39.5;
 		  }
 		  else {
 			  turn(90);
-			  pos_x += -10.3;
 		  }
 		  cpltErr.finished = 1;
 		  selectedIr = RIGHT;
 	  }
 	  else if (turnDir == RIGHT) {
+		  mtr_mov_cm(5);
 		  cpltErr.finished = 0;
 		  if (carTurnOk) {
 			  carTurn(1, 270);
-			  pos_x += 43.25;
-			  pos_y += 30.75;
 		  }
 		  else {
 			  turn(270);
-			  pos_x += 15.7;
 		  }
 		  cpltErr.finished = 1;
 		  selectedIr = LEFT;
 	  }
 
 	  // Go to edge of 2nd obstacle
+	  osDelay(100);
 	  ir = getIRReading(selectedIr);
 	  mtrA_init(0xFFFF, 0, 0, 0, 1);
 	  mtrB_init(0xFFFF, 0, 0, 0, 1);
-	  if (ir > 800) {
-		  while (ir > 800) {
-			  mtr_SetParamAndMove(&mtrA, DIR_FWD, 3000);
-			  mtr_SetParamAndMove(&mtrB, DIR_FWD, 3000);
+	  mtrA.suspend = SUS_OFF;
+	  mtrB.suspend = SUS_OFF;
+	  if (ir > 500) {
+		  mtr_SetParamAndMove(&mtrA, DIR_FWD, 3000);
+		  mtr_SetParamAndMove(&mtrB, DIR_FWD, 3000);
+		  while (ir > 500) {
 			  osDelay(10);
 			  ir = getIRReading(selectedIr);
 		  }
 		  mtr_stop();
-		  distTmp = ((double)((mtrAPID.count + mtrBPID.count) / 2) / CNT_PER_CM);
-		  //mtr_mov_cm(-5);
 	  }
-	  else if (ir <= 500) {
+	  else {
+		  mtr_SetParamAndMove(&mtrA, DIR_BCK, 3000);
+		  mtr_SetParamAndMove(&mtrB, DIR_BCK, 3000);
 		  while (ir <= 500) {
-			  mtr_SetParamAndMove(&mtrA, DIR_BCK, 3000);
-			  mtr_SetParamAndMove(&mtrB, DIR_BCK, 3000);
 			  osDelay(10);
 			  ir = getIRReading(selectedIr);
 		  }
 		  mtr_stop();
-		  distTmp = ((double)((mtrAPID.count + mtrBPID.count) / 2) / CNT_PER_CM);
-		  //mtr_mov_cm(-5);
 	  }
-	  if (turnDir == LEFT) {
-		  pos_x -= (distTmp - 10);
-	  }
-	  else if (turnDir == RIGHT) {
-		  pos_x += (distTmp + 10);
-	  }
+
+	  mtr_SetParamAndMove(&mtrA, DIR_FWD, 3000);
+	  mtr_SetParamAndMove(&mtrB, DIR_FWD, 3000);
+	  osDelay(500);
+	  mtr_stop();
 
 	  if (turnDir == LEFT) {
 		  cpltErr.finished = 0;
 		  carTurn(1, 270);
+		  mtr_SetParamAndMove(&mtrA, DIR_FWD, 3000);
+		  mtr_SetParamAndMove(&mtrB, DIR_FWD, 3000);
+		  osDelay(500);
+		  mtr_stop();
 		  carTurn(1, 270);
 		  cpltErr.finished = 1;
-		  pos_x += 12.5;
-		  pos_y += 74;
 	  }
 	  else if (turnDir == RIGHT) {
 		  cpltErr.finished = 0;
 		  carTurn(1, 90);
+		  mtr_SetParamAndMove(&mtrA, DIR_FWD, 3000);
+		  mtr_SetParamAndMove(&mtrB, DIR_FWD, 3000);
+		  osDelay(500);
+		  mtr_stop();
 		  carTurn(1, 90);
 		  cpltErr.finished = 1;
-		  pos_x += -5.5;
-		  pos_y += 84.5;
 	  }
 
 	  // Back to start of 2nd obstacle
@@ -1279,17 +1289,17 @@ void StartMotorServo(void *argument)
 		  mtr_SetParamAndMove(&mtrB, DIR_BCK, 3000);
 		  osDelay(10);
 		  ir = getIRReading(selectedIr);
-	  } while(ir > 800);
+	  } while(ir > 500);
 	  mtr_stop();
 
 	  // Fwd to end of 2nd obstacle
-	  ir = getIRReading(selectedIr);
 	  mtrA_init(0xFFFF, 0, 0, 0, 1);
 	  mtrB_init(0xFFFF, 0, 0, 0, 1);
 	  mtr_SetParamAndMove(&mtrA, DIR_FWD, 3000);
 	  mtr_SetParamAndMove(&mtrB, DIR_FWD, 3000);
-	  osDelay(500);
-	  while(ir > 800) {
+	  osDelay(1000);
+	  ir = getIRReading(selectedIr);
+	  while(ir > 500) {
 		  osDelay(10);
 		  ir = getIRReading(selectedIr);
 	  }
@@ -1297,14 +1307,15 @@ void StartMotorServo(void *argument)
 	  obs2Width = ((double)((mtrAPID.count + mtrBPID.count) / 2) / CNT_PER_CM);
 	  //mtr_mov_cm(-10);
 
+	  reqDist = -1;
 	  if (turnDir == LEFT) {
 		  cpltErr.finished = 0;
-		  carTurn(1, 270);
+		  carTurn(3, 270);
 		  cpltErr.finished = 1;
 	  }
 	  else if (turnDir == RIGHT) {
 		  cpltErr.finished = 0;
-		  carTurn(1, 90);
+		  carTurn(3, 90);
 		  cpltErr.finished = 1;
 	  }
 
@@ -1312,8 +1323,9 @@ void StartMotorServo(void *argument)
 	  mtr_SetParamAndMove(&mtrA, DIR_FWD, 3000);
 	  mtr_SetParamAndMove(&mtrB, DIR_FWD, 3000);
 	  osDelay(700);
-	  if (obs2Width > 65) {
+	  if (obs2Width > 70) {
 		  mtr_stop();
+		  reqDist = -1;
 		  if (turnDir == LEFT) {
 			  carTurn(1, 315);
 			  carTurn(1, 45);
@@ -1322,19 +1334,28 @@ void StartMotorServo(void *argument)
 			  carTurn(1, 45);
 			  carTurn(1, 315);
 		  }
+		  mtr_mov_cm(-25);
+	  }
+	  else {
+		  mtr_SetParamAndMove(&mtrA, DIR_FWD, 3000);
+		  mtr_SetParamAndMove(&mtrB, DIR_FWD, 3000);
+		  osDelay(1000);
 	  }
 	  mtr_SetParamAndMove(&mtrA, DIR_FWD, 3000);
 	  mtr_SetParamAndMove(&mtrB, DIR_FWD, 3000);
-	  while (ir <= 500) {
+	  osDelay(100);
+	  ir = getIRReading(selectedIr);
+	  while (ir <= 600) {
 		  osDelay(10);
 		  ir = getIRReading(selectedIr);
 	  }
-	  while (ir > 500) {
+	  while (ir > 600) {
 		  osDelay(10);
 		  ir = getIRReading(selectedIr);
 	  }
 	  mtr_stop();
 
+	  reqDist = -1;
 	  if (turnDir == LEFT) {
 		  cpltErr.finished = 0;
 		  carTurn(1, 270);
@@ -1349,9 +1370,8 @@ void StartMotorServo(void *argument)
 	  // Move horizontally towards obs 1
 	  mtr_SetParamAndMove(&mtrA, DIR_BCK, 3000);
 	  mtr_SetParamAndMove(&mtrB, DIR_BCK, 3000);
-	  mtrA_init(0xFFFF, 0, 0, 0, 1);
-	  mtrB_init(0xFFFF, 0, 0, 0, 1);
-	  while ((mtrA.count + mtrB.count) / 2 < 2200) {
+	  int millisOld = HAL_GetTick();
+	  while (HAL_GetTick() - millisOld < 1500) {
 		  ir = getIRReading(selectedIr);
 		  if (ir < 700) {
 			  osDelay(10);
@@ -1362,18 +1382,34 @@ void StartMotorServo(void *argument)
 	  }
 	  mtr_SetParamAndMove(&mtrA, DIR_FWD, 3000);
 	  mtr_SetParamAndMove(&mtrB, DIR_FWD, 3000);
+	  ir = getIRReading(selectedIr);
 	  while (ir < 700) {
 		  ir = getIRReading(selectedIr);
 		  osDelay(10);
 	  }
 
 	  // Turn towards carpark
-	  mtr_mov_cm(-35);
-	  carTurn(1, 270);
+	  mtr_mov_cm(-25);
+	  reqDist = -1;
+	  if (turnDir == RIGHT) {
+		  carTurn(3, 270);
+	  }
+	  else if (turnDir == LEFT) {
+		  carTurn(3, 90);
+	  }
 
 	  // Go into carpark
-	  distToObstacle_min = 10;
-	  do {
+	  distToObstacle_min = 20;
+	  reqDist = 0;
+	  cpltErr.finished = 0;
+	  mtr_SetParamAndMove(&mtrA, DIR_FWD, 3000);
+	  mtr_SetParamAndMove(&mtrB, DIR_FWD, 3000);
+	  while ((getIRReading(RIGHT) <= 600) || (getIRReading(LEFT) <= 600)) {
+		  osDelay(10);
+	  };
+	  osDelay(700);
+	  mtr_stop();
+	  /*do {
 		  // Request us distance
 		  usEnableActiveMeasure();
 		  while (!distReady) osDelay(10);
@@ -1408,9 +1444,9 @@ void StartMotorServo(void *argument)
 	  sprintf(oledbuf, "y: %5.1f", pos_y);
 	  OLED_ShowString(10, 30, &oledbuf[0]);
 	  OLED_Refresh_Gram();
+	  */
 
-
-	  break;
+	  start = 0;
 	  /*
 	  float dist = executeInstruction(&curInst, &cpltErr);
 	  if ((mtrA.suspend != SUS_OFF) || (mtrB.suspend != SUS_OFF)) {
@@ -1474,47 +1510,11 @@ void StartIMU(void *argument)
 	  sprintf(oledbuf, "Ori = %5.1f", orientation);
 	  OLED_ShowString(10, 45, &oledbuf[0]);
 	  OLED_Refresh_Gram();*/
-	  /*if (cpltErr.finished) {
+	  while (reqDist >= 0) {
 		  osDelay(5);
-	  }*/
+	  }
   }
   /* USER CODE END StartIMU */
-}
-
-/* USER CODE BEGIN Header_StartUART */
-/**
-* @brief Function implementing the uart thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartUART */
-void StartUART(void *argument)
-{
-  /* USER CODE BEGIN StartUART */
-  /* Infinite loop */
-  for(;;)
-  {
-	  /*if (!cpltErr.finished) {		// If a task is running, put this task to sleep
-		  osDelay(500);
-	  }
-	  else {
-		  // Initiate new task
-		  if (curInst.id == cpltErr.id + 1) {	// If a new instruction has been received but has not been processed
-			  while (HAL_UART_Receive_IT(&huart3, (uint8_t*) buf, UART_PACKET_SIZE) != HAL_OK) {
-				  osDelay(10);
-			  }
-			  newCpltErr(curInst.id);
-		  }
-		  // Send results
-		  else if (curInst.id == cpltErr.id) {
-			  uart_send();
-		  }
-		  osDelay(100);
-	  }
-	  */
-	  osDelay(10000);
-  }
-  /* USER CODE END StartUART */
 }
 
 /* USER CODE BEGIN Header_StartUS */
@@ -1527,11 +1527,10 @@ void StartUART(void *argument)
 void StartUS(void *argument)
 {
   /* USER CODE BEGIN StartUS */
+	HAL_GPIO_WritePin(US_TRIG_GPIO_Port, US_TRIG_Pin, GPIO_PIN_RESET);
   /* Infinite loop */
   for(;;)
   {
-	  HAL_GPIO_WritePin(US_TRIG_GPIO_Port, US_TRIG_Pin, GPIO_PIN_RESET);
-	  osDelay(50);
 	  HAL_GPIO_WritePin(US_TRIG_GPIO_Port, US_TRIG_Pin, GPIO_PIN_SET);
 	  Delay_us(10);
 	  HAL_GPIO_WritePin(US_TRIG_GPIO_Port, US_TRIG_Pin, GPIO_PIN_RESET);
