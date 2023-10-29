@@ -132,10 +132,8 @@ public class BluetoothChat {
     static void connected(BluetoothSocket mySocket, BluetoothDevice myDevice, Context context) {
         Log.d(TAG, "Connected: Starting");
 
-        //showToast("Connection Established With: "+myDevice.getName());
         myBluetoothConnectionDevice = myDevice;
         myContext = context;
-        //Start thread to manage the connection and perform transmissions
         startChat(mySocket);
 
 
@@ -146,12 +144,7 @@ public class BluetoothChat {
     */
     public static void writeMsg(byte[] out) {
 
-        // Create temporary object
-        // ConnectedThread temp;
-
-        // Synchronize a copy of the ConnectedThread
         Log.d(TAG, "write: Write Called.");
-        //perform the write
         write(out);
 
     }

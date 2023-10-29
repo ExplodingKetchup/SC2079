@@ -16,6 +16,8 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.576"
+        android:divider="#1D000000"
+        android:dividerHeight="2dp"
         tools:ignore="MissingConstraints" />
 
     <TextView
@@ -31,17 +33,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.872" />
-
-    <TextView
-        android:id="@+id/deviceOutputMsg"
-        android:layout_width="126dp"
-        android:layout_height="25dp"
-        android:layout_marginBottom="8dp"
-        android:text="Received:"
-        app:layout_constraintBottom_toTopOf="@+id/incomingText"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.308"
-        app:layout_constraintStart_toStartOf="parent" />
 
     <TextView
         android:id="@+id/deviceInputMsg"
@@ -114,18 +105,30 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintVertical_bias="0.76" />
 
+    <TextView
+        android:id="@+id/deviceInputmsg"
+        android:layout_width="126dp"
+        android:layout_height="25dp"
+        android:layout_marginBottom="4dp"
+        android:text="Send:"
+        app:layout_constraintBottom_toTopOf="@+id/messageText"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.108"
+        app:layout_constraintStart_toStartOf="parent" />
+
     <EditText
         android:id="@+id/messageText"
         android:layout_width="219dp"
         android:layout_height="62dp"
-        android:layout_marginBottom="92dp"
+        android:layout_marginBottom="96dp"
         android:background="@color/white"
         android:inputType="textPersonName"
         android:text="Hi"
         android:textColor="@color/black"
+        android:textSize="16dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.125"
+        app:layout_constraintHorizontal_bias="0.142"
         app:layout_constraintStart_toStartOf="parent" />
 
     <ListView
@@ -136,6 +139,8 @@
         android:layout_marginEnd="8dp"
         android:background="@color/white"
         android:listSelector="#bcbcbc"
+        android:divider="#1D000000"
+        android:dividerHeight="2dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.535"
@@ -156,13 +161,25 @@
         android:id="@+id/incomingText"
         android:layout_width="369dp"
         android:layout_height="77dp"
-        android:layout_marginBottom="212dp"
+        android:layout_marginBottom="204dp"
         android:background="@color/white"
         android:text="Waiting"
+        android:textSize="16dp"
         android:textColor="@color/black"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.206"
+        app:layout_constraintHorizontal_bias="0.227"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <TextView
+        android:id="@+id/deviceOutputMsg"
+        android:layout_width="126dp"
+        android:layout_height="25dp"
+        android:layout_marginBottom="8dp"
+        android:text="Received:"
+        app:layout_constraintBottom_toTopOf="@+id/incomingText"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.108"
         app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

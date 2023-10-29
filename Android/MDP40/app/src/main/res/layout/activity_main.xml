@@ -79,7 +79,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="5dp"
-            android:layout_marginBottom="26dp"
+            android:layout_marginBottom="30dp"
             android:adjustViewBounds="true"
             android:background="@null"
             android:clickable="true"
@@ -110,7 +110,7 @@
             app:layout_constraintHorizontal_bias="0.167"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_bias="0.82" />
+            app:layout_constraintVertical_bias="0.85" />
 
         <ImageButton
             android:id="@+id/arrowLeft"
@@ -735,12 +735,13 @@
                 <!-- first element of the row-->
                 <TextView
                     android:id="@+id/robot_location"
+                    android:layout_width="81dp"
                     android:layout_height="40dp"
                     android:text=""
                     android:textAlignment="center"
                     android:textColor="#000"
                     android:textSize="14sp"
-                    app:layout_anchorGravity="center"/>
+                    app:layout_anchorGravity="center" />
 
                 <TextView
                     android:id="@+id/robot_facing"
@@ -768,7 +769,7 @@
             <!-- new first row of the table layout-->
             <TableRow
                 android:id="@+id/btnfirstRow"
-                android:layout_width="575dp"
+                android:layout_width="484dp"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_vertical"
                 android:background="#787878"
@@ -778,9 +779,9 @@
                 <!-- first element of the row-->
                 <ImageButton
                     android:id="@+id/connect_button"
-                    android:layout_width="80dp"
+                    android:layout_width="130dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
+                    android:layout_marginStart="18dp"
                     android:adjustViewBounds="true"
                     android:background="@null"
                     android:clickable="true"
@@ -792,9 +793,9 @@
 
                 <ImageButton
                     android:id="@+id/resetObstacles"
-                    android:layout_width="80dp"
+                    android:layout_width="130dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
+                    android:layout_marginStart="18dp"
                     android:adjustViewBounds="true"
                     android:background="@null"
                     android:clickable="true"
@@ -806,9 +807,9 @@
 
                 <ImageButton
                     android:id="@+id/generateRobot"
-                    android:layout_width="80dp"
+                    android:layout_width="130dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
+                    android:layout_marginStart="18dp"
                     android:adjustViewBounds="true"
                     android:background="@null"
                     android:clickable="true"
@@ -818,25 +819,25 @@
                     android:scaleType="fitCenter"
                     android:src="@drawable/generate" />
 
-                <ImageButton
-                    android:id="@+id/calculate"
-                    android:layout_width="80dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:adjustViewBounds="true"
-                    android:background="@null"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:maxWidth="40dp"
-                    android:maxHeight="40dp"
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/path_button" />
+<!--                <ImageButton-->
+<!--                    android:id="@+id/calculate"-->
+<!--                    android:layout_width="80dp"-->
+<!--                    android:layout_height="wrap_content"-->
+<!--                    android:layout_marginStart="12dp"-->
+<!--                    android:adjustViewBounds="true"-->
+<!--                    android:background="@null"-->
+<!--                    android:clickable="true"-->
+<!--                    android:focusable="true"-->
+<!--                    android:maxWidth="40dp"-->
+<!--                    android:maxHeight="40dp"-->
+<!--                    android:scaleType="fitCenter"-->
+<!--                    android:src="@drawable/path_button" />-->
 
                 <ImageButton
                     android:id="@+id/sendJsonString"
-                    android:layout_width="80dp"
+                    android:layout_width="130dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
+                    android:layout_marginStart="18dp"
                     android:adjustViewBounds="true"
                     android:background="@null"
                     android:clickable="true"
@@ -846,19 +847,19 @@
                     android:scaleType="fitCenter"
                     android:src="@drawable/send" />
 
-                <ImageButton
-                    android:id="@+id/start_robot"
-                    android:layout_width="80dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:adjustViewBounds="true"
-                    android:background="@null"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:maxWidth="40dp"
-                    android:maxHeight="40dp"
-                    android:scaleType="fitCenter"
-                    android:src="@drawable/start_button" />
+                <!--                <ImageButton-->
+                <!--                    android:id="@+id/start_robot"-->
+                <!--                    android:layout_width="80dp"-->
+                <!--                    android:layout_height="wrap_content"-->
+                <!--                    android:layout_marginStart="12dp"-->
+                <!--                    android:adjustViewBounds="true"-->
+                <!--                    android:background="@null"-->
+                <!--                    android:clickable="true"-->
+                <!--                    android:focusable="true"-->
+                <!--                    android:maxWidth="40dp"-->
+                <!--                    android:maxHeight="40dp"-->
+                <!--                    android:scaleType="fitCenter"-->
+                <!--                    android:src="@drawable/start_button" />-->
 
 
             </TableRow>
@@ -872,9 +873,9 @@
                 <!-- first element of the row-->
                 <TextView
                     android:id="@+id/connect_Text"
-                    android:layout_width="80dp"
+                    android:layout_width="130dp"
                     android:layout_height="40dp"
-                    android:layout_marginStart="12dp"
+                    android:layout_marginStart="18dp"
                     android:text="Connect"
                     android:textAlignment="center"
                     android:textColor="#000"
@@ -883,9 +884,9 @@
 
                 <TextView
                     android:id="@+id/reset_Text"
-                    android:layout_width="80dp"
+                    android:layout_width="130dp"
                     android:layout_height="40dp"
-                    android:layout_marginStart="12dp"
+                    android:layout_marginStart="18dp"
                     android:text="Reset"
                     android:textAlignment="center"
                     android:textColor="#000"
@@ -894,43 +895,32 @@
 
                 <TextView
                     android:id="@+id/robot_Text"
-                    android:layout_width="80dp"
+                    android:layout_width="130dp"
                     android:layout_height="40dp"
-                    android:layout_marginStart="12dp"
+                    android:layout_marginStart="18dp"
                     android:text="Robot"
                     android:textAlignment="center"
                     android:textColor="#000"
                     android:textSize="15sp"
                     app:layout_anchorGravity="center" />
 
-                <TextView
-                    android:id="@+id/path_Text"
-                    android:layout_width="80dp"
-                    android:layout_height="40dp"
-                    android:layout_marginStart="12dp"
-                    android:text="Path"
-                    android:textAlignment="center"
-                    android:textColor="#000"
-                    android:textSize="15sp"
-                    app:layout_anchorGravity="center" />
+<!--                <TextView-->
+<!--                    android:id="@+id/path_Text"-->
+<!--                    android:layout_width="80dp"-->
+<!--                    android:layout_height="40dp"-->
+<!--                    android:layout_marginStart="12dp"-->
+<!--                    android:text="Path"-->
+<!--                    android:textAlignment="center"-->
+<!--                    android:textColor="#000"-->
+<!--                    android:textSize="15sp"-->
+<!--                    app:layout_anchorGravity="center" />-->
 
                 <TextView
                     android:id="@+id/send_Text"
-                    android:layout_width="80dp"
+                    android:layout_width="130dp"
                     android:layout_height="40dp"
-                    android:layout_marginStart="12dp"
+                    android:layout_marginStart="18dp"
                     android:text="Send"
-                    android:textAlignment="center"
-                    android:textColor="#000"
-                    android:textSize="15sp"
-                    app:layout_anchorGravity="center" />
-
-                <TextView
-                    android:id="@+id/start_Text"
-                    android:layout_width="80dp"
-                    android:layout_height="40dp"
-                    android:layout_marginStart="12dp"
-                    android:text="Start"
                     android:textAlignment="center"
                     android:textColor="#000"
                     android:textSize="15sp"
