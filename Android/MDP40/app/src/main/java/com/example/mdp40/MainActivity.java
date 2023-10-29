@@ -657,41 +657,6 @@ public class MainActivity extends AppCompatActivity {
 
 
         //POPUP BUTTONS
-        ImageButton startRobot = (ImageButton) findViewById(R.id.start_robot);
-        startRobot.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                //executeInstruction();
-                outputNotif = String.format("run");
-                outputNotifView.setText(outputNotif);
-
-                if (Constants.connected) {
-                    Snackbar snackbar = Snackbar.make(getWindow().getDecorView(), "Start Robot", Snackbar.LENGTH_SHORT);
-                    snackbar.show();
-
-                    byte[] bytes = outputNotif.getBytes(Charset.defaultCharset());
-                    BluetoothChat.writeMsg(bytes);
-                }
-            }
-        });
-
-        ImageButton calculatePath = (ImageButton) findViewById(R.id.calculate);
-        calculatePath.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                //executeInstruction();
-                outputNotif = String.format("path");
-                outputNotifView.setText(outputNotif);
-
-                if (Constants.connected) {
-                    Snackbar snackbar = Snackbar.make(getWindow().getDecorView(), "Calculate path", Snackbar.LENGTH_SHORT);
-                    snackbar.show();
-
-                    byte[] bytes = outputNotif.getBytes(Charset.defaultCharset());
-                    BluetoothChat.writeMsg(bytes);
-                }
-            }
-        });
 
         ImageButton sendJsonStringButton = (ImageButton) findViewById(R.id.sendJsonString);
         sendJsonStringButton.setOnClickListener(new View.OnClickListener() {
@@ -713,10 +678,14 @@ public class MainActivity extends AppCompatActivity {
                             jsonObstacles.put(jsonObstacle);
                         }
                     }
-                    outputNotif = jsonObstacles.toString() + "\n";
+                    JSONObject jsonRobotDir = new JSONObject();
+                    jsonRobotDir.put("rd",map.getRobotFacing());
+                    outputNotif = jsonRobotDir.toString() + jsonObstacles.toString() + "\n";
                     byte[] bytes = outputNotif.getBytes(Charset.defaultCharset());
                     //SEND VALUE
                     if (bytes != null && Constants.connected) {
+                        Snackbar snackbar = Snackbar.make(getWindow().getDecorView(), "Start Robot", Snackbar.LENGTH_SHORT);
+                        snackbar.show();
                         BluetoothChat.writeMsg(bytes);
                     }
                 } catch (JSONException e) {
@@ -966,11 +935,7 @@ public class MainActivity extends AppCompatActivity {
 
                         int x = (int) dragEvent.getX();
                         int y = (int) dragEvent.getY();
-
-                        // this is the exact location - but we want to snap to grid //myImage.setX(x + map.getX() - map.getCellSize()/2); //myImage.setY(y+ map.getY() - map.getCellSize()/2);
-                        // if the past location of obstacle was in the map, u remove the old one.
                         if (pastX >= map.getX() && pastX <= map.getX() + map.getWidth() && pastY >= map.getY() && pastY <= map.getY() + map.getHeight()) {
-                            //System.out.println("IN MAP");
                             map.removeObstacleUsingCoord(pastX - map.getX() + map.getCellSize() / 2, pastY - map.getY() + map.getCellSize() / 2);
                         }
 
@@ -999,13 +964,6 @@ public class MainActivity extends AppCompatActivity {
                         if (currentObstacleCoords[obstacleNum - 1][0] == newObstacleCoord[0] && currentObstacleCoords[obstacleNum - 1][1] == newObstacleCoord[1]) {
                             spinner.setSelection(obstacleNum - 1);
                             popup.setVisibility(View.VISIBLE);
-//                        } else {
-//
-//                            // SEND to RPI - if not a ®click!! - MESSAGE
-//                            if (Constants.connected) {
-//                                byte[] bytes = outputNotif.getBytes(Charset.defaultCharset());
-//                                BluetoothChat.writeMsg(bytes);
-//                            }
                         }
 
                         //saving the current obstacles
@@ -1046,8 +1004,6 @@ public class MainActivity extends AppCompatActivity {
                         //System.out.println("out of map");
                         ConstraintLayout curObstacleGrp = (ConstraintLayout) event.getLocalState();
 
-                        // loop through obstacleviews to find the obstacle name
-                        // set according to obstacle coord
                         for (int i = 0; i < obstacleViews.size(); i++) {
                             if (curObstacleGrp == obstacleViews.get(i)) {
                                 curObstacleGrp.setX(originalObstacleCoords[i][0]);
@@ -1103,7 +1059,6 @@ public class MainActivity extends AppCompatActivity {
      */
     @SuppressLint("DefaultLocale")
     public void trackRobot() {
-        //System.out.println("TRACK ROBOT FUNCTION");
 
         int[] robotImageCoord = map.getCurCoord();
         int[] robotLocation = map.setRobotImagePosition(robotImageCoord[0], map.convertRow(robotImageCoord[1]), map.getLeft(), map.getTop());
@@ -1255,12 +1210,10 @@ public class MainActivity extends AppCompatActivity {
         }
         map.removeAllObstacles();
 
-
-        //TO REMOVE THE ROBOT ALSO
-        //map.setCanDrawRobot(false);
-        //robot.setVisibility(View.INVISIBLE);
-        //map.setOldRobotCoord(map.getCurCoord()[0],map.getCurCoord()[1]);
-        //robot_popup.setVisibility(View.INVISIBLE);
+        map.setCanDrawRobot(false);
+        robot.setVisibility(View.INVISIBLE);
+        map.setOldRobotCoord(map.getCurCoord()[0],map.getCurCoord()[1]);
+        robot_popup.setVisibility(View.INVISIBLE);
 
         map.reset();   //remove all cells.
         map.invalidate();
@@ -1306,9 +1259,6 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
 
         //noinspection SimplifiableIfStatement
@@ -1370,24 +1320,12 @@ public class MainActivity extends AppCompatActivity {
     public void turnonbluetooth() {
         if (!mBlueAdapter.isEnabled()) {
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                // TODO: Consider calling
                 ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.BLUETOOTH_ADMIN}, 1);
-                // here to request the missing permissions, and then overriding
-                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                //                                          int[] grantResults)
-                // to handle the case where the user grants the permission. See the documentation
-                // for ActivityCompat#requestPermissions for more details.
                 Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
                 activityResultLauncher.launch(intent);
                 //return;
             }
             mStatusBlueTv.setText("Bluetooth is on");
-
-            // Intent to On Bluetooth
-            //Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            //  startActivityForResult(intent, REQUEST_ENABLE_BT);
-
-            //activityResultLauncher.launch(intent);
         } else {
             showToast("Bluetooth is already on");
         }
@@ -1397,18 +1335,9 @@ public class MainActivity extends AppCompatActivity {
     public void turnoffbluetooth() {
         if (mBlueAdapter.isEnabled()) {
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                // TODO: Consider calling
-                //    ActivityCompat#requestPermissions
-                // here to request the missing permissions, and then overriding
-                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                //                                          int[] grantResults)
-                // to handle the case where the user grants the permission. See the documentation
-                // for ActivityCompat#requestPermissions for more details.
-
                 mBlueAdapter.disable();
                 showToast("Turning Bluetooth Off");
                 mStatusBlueTv.setText("Bluetooth is off");
-                //mBlueIv.setImageResource(R.drawable.ic_action_off);
             }
         } else {
             showToast("Bluetooth is already off");
@@ -1419,16 +1348,9 @@ public class MainActivity extends AppCompatActivity {
     public void bluetooth_discoverable() {
         if (!mBlueAdapter.isEnabled()) {
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                // TODO: Consider calling
                 ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.BLUETOOTH_ADMIN}, 1);
-                // here to request the missing permissions, and then overriding
-                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                //                                          int[] grantResults)
-                // to handle the case where the user grants the permission. See the documentation
-                // for ActivityCompat#requestPermissions for more details.
                 mStatusBlueTv.setText("Making Your Device Discoverable");
                 Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-                //startActivityForResult(intent ,REQUEST_DISCOVER_BT);
                 activityResultLauncher.launch(intent);
             }
         } else {
@@ -1457,8 +1379,6 @@ public class MainActivity extends AppCompatActivity {
 
             String connectionStatus = intent.getStringExtra("ConnectionStatus");
             myBTConnectionDevice = intent.getParcelableExtra("Device");
-            //myBTConnectionDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-            //DISCONNECTED FROM BLUETOOTH CHAT
             if (connectionStatus.equals("disconnect")) {
 
                 Log.d("MainActivity:", "Device Disconnected");
@@ -1466,8 +1386,6 @@ public class MainActivity extends AppCompatActivity {
                 connectedState = false;
 
                 if (currentActivity) {
-
-                    //RECONNECT DIALOG MSG
                     AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).create();
                     alertDialog.setTitle("BLUETOOTH DISCONNECTED");
                     alertDialog.setMessage("Connection with device: '" + myBTConnectionDevice.getName() + "' has ended. Do you want to reconnect?");
@@ -1504,20 +1422,12 @@ public class MainActivity extends AppCompatActivity {
                 else if (connectionStatus.equals("connect")) {
 
                     if (ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                        // TODO: Consider calling
-                        //    ActivityCompat#requestPermissions
-                        // here to request the missing permissions, and then overriding
-                        //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                        //                                          int[] grantResults)
-                        // to handle the case where the user grants the permission. See the documentation
-                        // for ActivityCompat#requestPermissions for more details.
                     }
                     connectedDevice = myBTConnectionDevice.getName();
                     connectedState = true;
                     Log.d("MainActivity:", "Device Connected " + connectedState);
                     Snackbar snackbar = Snackbar.make(getWindow().getDecorView(), "Connection Established: " + myBTConnectionDevice.getName(), Snackbar.LENGTH_SHORT);
                     snackbar.show();
-                    //Toast.makeText(MainActivity.this, "Connection Established: " + myBTConnectionDevice.getName(), Toast.LENGTH_LONG).show();
                 }
 
                 //BLUETOOTH CONNECTION FAILED
@@ -1532,7 +1442,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        //unregisterReceiver(btConnectionReceiver);
     }
 
     @Override

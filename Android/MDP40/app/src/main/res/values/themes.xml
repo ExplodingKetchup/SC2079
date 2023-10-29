@@ -20,6 +20,6 @@
         <item name="windowNoTitle">true</item>
     </style>
 
-    <style name="Theme.MDP40.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
+    <style name="Theme.MDP40.AppBarOverlay" parent="ThemeOverlay.AppCompat.DayNight.ActionBar" />
 
 </resources>

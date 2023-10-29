@@ -98,13 +98,6 @@ public class BluetoothConnectionService extends IntentService {
             //Create a new listening server socket
             try {
                 if (ActivityCompat.checkSelfPermission(BluetoothConnectionService.this, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                    // TODO: Consider calling
-                    //    ActivityCompat#requestPermissions
-                    // here to request the missing permissions, and then overriding
-                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                    //                                          int[] grantResults)
-                    // to handle the case where the user grants the permission. See the documentation
-                    // for ActivityCompat#requestPermissions for more details.
                 }
                 temp = myBluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord(appName, myUUID);
                 Log.d(TAG, "AcceptThread: Setting up server using: " + myUUID);
@@ -168,8 +161,6 @@ public class BluetoothConnectionService extends IntentService {
     }
 
     private void connectionFailed() {
-        // Send a failure message back to the Activity
-//        mHandler.obtainMessage(HandlerConstants.MESSAGE_TOAST, "Unable to connect device").sendToTarget();
         Log.d(BLUETOOTH_CONNECTION_TAG, "Connection failed");
         mState = ConnectionConstants.STATE_DISCONNECTED;
         reconnecting = true;
@@ -187,7 +178,6 @@ public class BluetoothConnectionService extends IntentService {
     public void connectionLost() {
         // Send a failure message back to the Activity
         Log.d(BLUETOOTH_CONNECTION_TAG, "Connection lost");
-        //mHandler.obtainMessage(HandlerConstants.MESSAGE_TOAST, "Device connection was lost").sendToTarget();
         mState = ConnectionConstants.STATE_DISCONNECTED;
         reconnecting = true;
         if (mReconnectThread == null && myBluetoothAdapter.isEnabled()) {
@@ -266,13 +256,6 @@ public class BluetoothConnectionService extends IntentService {
             try {
                 Log.d(TAG, "ConnectThread: Trying to create InsecureRFcommSocket using UUID: " + myUUID);
                 if (ActivityCompat.checkSelfPermission(BluetoothConnectionService.this, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                    // TODO: Consider calling
-                    //    ActivityCompat#requestPermissions
-                    // here to request the missing permissions, and then overriding
-                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                    //                                          int[] grantResults)
-                    // to handle the case where the user grants the permission. See the documentation
-                    // for ActivityCompat#requestPermissions for more details.
                 }
                 temp = myDevice.createRfcommSocketToServiceRecord(deviceUUID);
             } catch (IOException e) {

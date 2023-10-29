@@ -513,20 +513,5 @@ public class Map extends View { //implements Serializable
         return COL;
     }
 
-
-    //WAS USED FOR SERIALIZABLE
-    //private void writeObject(ObjectOutputStream out) throws IOException {
-    //    out.defaultWriteObject();
-    //    out.writeObject(context);
-    //    out.writeObject(attrs);
-    //}
-
-     //private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
-     //    in.defaultReadObject();
-     //   context = (Context) in.readObject();
-     //   attrs = (AttributeSet) in.readObject();
-    //}
-
-
 }
 
